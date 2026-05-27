@@ -1,10 +1,11 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useAppData } from "@/lib/store";
+import { useAppData, useHydrated } from "@/lib/store";
 import { entriesForDate, totalsForDate, creatineTakenOn } from "@/lib/selectors";
 import { dailyStatus } from "@/lib/status";
-import { clampPercent, round, todayStr } from "@/lib/utils";
+import { clampPercent, lighten, round, todayStr } from "@/lib/utils";
+import Loading from "./loading";
 import { Gauge } from "@/components/ui/gauge";
 import { AnimatedNumber } from "@/components/ui/animated-number";
 import { PageShell } from "@/components/page-shell";
@@ -20,7 +21,11 @@ const toneStyles: Record<string, string> = {
 
 export default function HomePage() {
   const data = useAppData();
+  const hydrated = useHydrated();
   const today = todayStr();
+
+  // Avoid flashing default goals before localStorage has loaded.
+  if (!hydrated) return <Loading />;
   const totals = totalsForDate(data, today);
   const { settings } = data;
 
@@ -45,7 +50,13 @@ export default function HomePage() {
 
       {/* Calorie gauge */}
       <div className="glass flex flex-col items-center gap-2 p-6">
-        <Gauge value={caloriePercent} size={240} strokeWidth={18}>
+        <Gauge
+          value={caloriePercent}
+          size={240}
+          strokeWidth={18}
+          gradientFrom={settings.accentColor}
+          gradientTo={lighten(settings.accentColor, 0.35)}
+        >
           <p className="text-xs uppercase tracking-widest text-white/40">
             Calories
           </p>
