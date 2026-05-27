@@ -13,7 +13,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ results: [], usda: false });
   }
 
-  const apiKey = process.env.USDA_API_KEY;
+  const apiKey = process.env.USDA_FDC_API_KEY;
   const results: NormalizedFood[] = [];
   let usdaUsed = false;
 
