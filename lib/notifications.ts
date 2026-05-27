@@ -2,6 +2,9 @@
 
 export type PermissionState = NotificationPermission | "unsupported";
 
+/** localStorage key holding the last-sent marker ("YYYY-MM-DD|HH:MM"). */
+export const REMINDER_SENT_KEY = "dailybulk:lastCreatineReminder";
+
 export function canUseNotifications(): boolean {
   return typeof window !== "undefined" && "Notification" in window;
 }

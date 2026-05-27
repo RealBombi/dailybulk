@@ -13,6 +13,7 @@ import {
 import { PageHeader, PageShell } from "@/components/page-shell";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { ReminderDebug } from "@/components/reminder-debug";
 
 const ACCENTS = ["#6366f1", "#22d3ee", "#34d399", "#f472b6", "#fbbf24"];
 
@@ -157,6 +158,7 @@ export default function SettingsPage() {
           Reminder scheduling is stored on this device. Full background push
           reminders will be added later.
         </p>
+        <ReminderDebug />
       </Card>
 
       <Card className="flex flex-col gap-4">

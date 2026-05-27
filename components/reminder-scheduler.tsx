@@ -4,15 +4,25 @@ import { useEffect, useRef } from "react";
 import { useAppData } from "@/lib/store";
 import { creatineTakenOn } from "@/lib/selectors";
 import { todayStr } from "@/lib/utils";
-import { canUseNotifications, showNotification } from "@/lib/notifications";
+import {
+  canUseNotifications,
+  showNotification,
+  REMINDER_SENT_KEY,
+} from "@/lib/notifications";
 
-const LAST_KEY = "dailybulk:lastCreatineReminder";
+const CHECK_MS = 15_000;
+const DEBUG = process.env.NODE_ENV !== "production";
+
+function minutesOf(hhmm: string): number {
+  const [h, m] = hhmm.split(":").map((n) => parseInt(n, 10));
+  return (h || 0) * 60 + (m || 0);
+}
 
 /**
  * Best-effort local creatine reminder. While the app is open, once the chosen
  * time has passed and creatine isn't taken yet, it fires a single notification
- * for the day. Without server push it can't fire when the app is fully closed
- * — that's the documented limitation.
+ * for that day+time. Without server push it can't fire when the app is fully
+ * closed — that's the documented limitation.
  */
 export function ReminderScheduler() {
   const data = useAppData();
@@ -23,30 +33,48 @@ export function ReminderScheduler() {
     if (!canUseNotifications()) return;
 
     const check = () => {
-      const d = dataRef.current;
-      const s = d.settings;
-      if (!s.creatineReminderEnabled) return;
-      if (Notification.permission !== "granted") return;
-
+      const s = dataRef.current.settings;
       const today = todayStr();
-      if (creatineTakenOn(d, today)) return;
-
-      let last = "";
+      const taken = creatineTakenOn(dataRef.current, today);
+      const permission = Notification.permission;
+      const now = new Date();
+      const nowMin = now.getHours() * 60 + now.getMinutes();
+      const targetMin = minutesOf(s.creatineReminderTime);
+      // Re-arms when the date OR the chosen time changes.
+      const marker = `${today}|${s.creatineReminderTime}`;
+      let sent = "";
       try {
-        last = window.localStorage.getItem(LAST_KEY) ?? "";
+        sent = window.localStorage.getItem(REMINDER_SENT_KEY) ?? "";
       } catch {
         /* ignore */
       }
-      if (last === today) return;
 
-      const now = new Date();
-      const current = `${String(now.getHours()).padStart(2, "0")}:${String(
-        now.getMinutes(),
-      ).padStart(2, "0")}`;
-      if (current < s.creatineReminderTime) return;
+      const due =
+        s.creatineReminderEnabled &&
+        permission === "granted" &&
+        !taken &&
+        nowMin >= targetMin &&
+        sent !== marker;
+
+      if (DEBUG) {
+        // eslint-disable-next-line no-console
+        console.debug("[creatine-reminder]", {
+          enabled: s.creatineReminderEnabled,
+          time: s.creatineReminderTime,
+          now: `${String(now.getHours()).padStart(2, "0")}:${String(
+            now.getMinutes(),
+          ).padStart(2, "0")}`,
+          takenToday: taken,
+          permission,
+          lastSent: sent || "—",
+          due,
+        });
+      }
+
+      if (!due) return;
 
       try {
-        window.localStorage.setItem(LAST_KEY, today);
+        window.localStorage.setItem(REMINDER_SENT_KEY, marker);
       } catch {
         /* ignore */
       }
@@ -57,7 +85,7 @@ export function ReminderScheduler() {
     };
 
     check();
-    const id = window.setInterval(check, 60_000);
+    const id = window.setInterval(check, CHECK_MS);
     return () => window.clearInterval(id);
   }, []);
 
