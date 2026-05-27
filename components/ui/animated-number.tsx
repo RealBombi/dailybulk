@@ -50,6 +50,7 @@ export function AnimatedNumber({
       {display.toLocaleString(undefined, {
         minimumFractionDigits: decimals,
         maximumFractionDigits: decimals,
+        useGrouping: false,
       })}
     </span>
   );
