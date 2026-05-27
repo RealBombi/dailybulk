@@ -8,7 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
 import { PortionEditor } from "./portion-editor";
 
-export function BarcodeTab({ onAdded }: { onAdded: () => void }) {
+export function BarcodeTab({
+  onAdded,
+  date,
+}: {
+  onAdded: () => void;
+  date?: string;
+}) {
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -105,6 +111,7 @@ export function BarcodeTab({ onAdded }: { onAdded: () => void }) {
         {product && (
           <PortionEditor
             food={product}
+            date={date}
             onAdded={() => {
               setProduct(null);
               onAdded();

@@ -13,9 +13,11 @@ const UNITS: AmountUnit[] = ["g", "ml", "serving", "piece"];
 export function PortionEditor({
   food,
   onAdded,
+  date,
 }: {
   food: NormalizedFood;
   onAdded: () => void;
+  date?: string;
 }) {
   const [amount, setAmount] = useState(100);
   const [unit, setUnit] = useState<AmountUnit>("g");
@@ -37,6 +39,7 @@ export function PortionEditor({
       source,
       externalId: food.externalId,
       barcode: food.barcode,
+      date,
     });
     onAdded();
   };

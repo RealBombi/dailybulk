@@ -22,7 +22,13 @@ const empty = {
   fat: "",
 };
 
-export function ManualAddTab({ onAdded }: { onAdded: () => void }) {
+export function ManualAddTab({
+  onAdded,
+  date,
+}: {
+  onAdded: () => void;
+  date?: string;
+}) {
   const [form, setForm] = useState({ ...empty });
   const [alsoSave, setAlsoSave] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -55,6 +61,7 @@ export function ManualAddTab({ onAdded }: { onAdded: () => void }) {
       amount: 1,
       amountUnit: "serving",
       source: "manual",
+      date,
     });
     if (alsoSave) {
       addSavedMeal({

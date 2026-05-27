@@ -4,7 +4,13 @@ import { Plus, Trash2 } from "lucide-react";
 import { addFoodEntry, deleteSavedMeal, useAppData } from "@/lib/store";
 import { EmptyState } from "@/components/page-shell";
 
-export function SavedMealsTab({ onAdded }: { onAdded: () => void }) {
+export function SavedMealsTab({
+  onAdded,
+  date,
+}: {
+  onAdded: () => void;
+  date?: string;
+}) {
   const { savedMeals } = useAppData();
 
   if (savedMeals.length === 0) {
@@ -28,6 +34,7 @@ export function SavedMealsTab({ onAdded }: { onAdded: () => void }) {
       source: "saved_meal",
       externalId: meal.externalId,
       barcode: meal.barcode,
+      date,
     });
     onAdded();
   };

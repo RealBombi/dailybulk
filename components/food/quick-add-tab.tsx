@@ -7,7 +7,13 @@ import { Button } from "@/components/ui/button";
 
 const PRESETS = [100, 250, 500];
 
-export function QuickAddTab({ onAdded }: { onAdded: () => void }) {
+export function QuickAddTab({
+  onAdded,
+  date,
+}: {
+  onAdded: () => void;
+  date?: string;
+}) {
   const [calories, setCalories] = useState("");
 
   const add = (value: number) => {
@@ -18,6 +24,7 @@ export function QuickAddTab({ onAdded }: { onAdded: () => void }) {
       amount: 1,
       amountUnit: "serving",
       source: "manual",
+      date,
     });
     setCalories("");
     onAdded();

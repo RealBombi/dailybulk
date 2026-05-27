@@ -8,7 +8,13 @@ import { Sheet } from "@/components/ui/sheet";
 import { FoodResultItem } from "./food-result-item";
 import { PortionEditor } from "./portion-editor";
 
-export function SearchTab({ onAdded }: { onAdded: () => void }) {
+export function SearchTab({
+  onAdded,
+  date,
+}: {
+  onAdded: () => void;
+  date?: string;
+}) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<NormalizedFood[]>([]);
   const [loading, setLoading] = useState(false);
@@ -77,6 +83,7 @@ export function SearchTab({ onAdded }: { onAdded: () => void }) {
         {selected && (
           <PortionEditor
             food={selected}
+            date={date}
             onAdded={() => {
               setSelected(null);
               onAdded();
