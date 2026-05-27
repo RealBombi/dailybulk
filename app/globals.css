@@ -5,6 +5,10 @@
 :root {
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
+  /* Accent as RGB channels so Tailwind opacity modifiers (e.g. bg-accent/20) work.
+     Overridden at runtime from the user's chosen accent in settings. */
+  --accent: 99 102 241;
+  --accent-soft: 129 140 248;
 }
 
 html {

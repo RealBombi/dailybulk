@@ -16,8 +16,8 @@ const config: Config = {
         },
         card: "rgba(255,255,255,0.04)",
         accent: {
-          DEFAULT: "#6366f1",
-          soft: "#818cf8",
+          DEFAULT: "rgb(var(--accent) / <alpha-value>)",
+          soft: "rgb(var(--accent-soft) / <alpha-value>)",
         },
       },
       borderRadius: {
@@ -29,7 +29,7 @@ const config: Config = {
         sans: ["var(--font-sans)", "system-ui", "sans-serif"],
       },
       boxShadow: {
-        glow: "0 0 40px -10px rgba(99,102,241,0.45)",
+        glow: "0 0 40px -10px rgb(var(--accent) / 0.5)",
         card: "0 8px 30px -12px rgba(0,0,0,0.6)",
       },
       keyframes: {

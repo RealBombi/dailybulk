@@ -15,7 +15,7 @@ export function QuickActions() {
     <div className="flex flex-col gap-3">
       <Link
         href="/food?mode=manual"
-        className="tap flex h-16 items-center justify-center gap-2 rounded-3xl bg-gradient-to-br from-accent to-violet-500 text-lg font-bold text-white shadow-glow"
+        className="tap flex h-16 items-center justify-center gap-2 rounded-3xl bg-gradient-to-br from-accent to-accent-soft text-lg font-bold text-white shadow-glow"
       >
         <Plus className="h-6 w-6" /> Add food
       </Link>
