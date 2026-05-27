@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
 import { useEffect } from "react";
 import { Portal } from "./portal";
+import { ErrorBoundary } from "./error-boundary";
 
 type Props = {
   open: boolean;
@@ -54,7 +55,9 @@ export function Sheet({ open, onClose, title, children }: Props) {
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="max-h-[70dvh] overflow-y-auto">{children}</div>
+            <div className="max-h-[70dvh] overflow-y-auto">
+              <ErrorBoundary>{children}</ErrorBoundary>
+            </div>
           </motion.div>
         </div>
       )}
