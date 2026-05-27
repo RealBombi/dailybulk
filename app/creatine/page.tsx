@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Check, Flame, CalendarDays } from "lucide-react";
+import { Check, Flame, CalendarDays, Bell } from "lucide-react";
 import { useAppData, setCreatine } from "@/lib/store";
 import {
   creatineStreak,
@@ -21,10 +21,22 @@ export default function CreatinePage() {
   const streak = creatineStreak(data);
   const weekly = creatineWeeklyCount(data);
   const grams = data.settings.creatineGoalGrams;
+  const { creatineReminderEnabled, creatineReminderTime } = data.settings;
 
   return (
     <PageShell>
       <PageHeader title="Creatine" subtitle={`${grams}g daily goal`} />
+
+      {creatineReminderEnabled && (
+        <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm">
+          <Bell className="h-4 w-4 text-accent-soft" />
+          <span className="text-white/70">
+            {taken
+              ? "Creatine done — no reminder needed today"
+              : `Reminder set for ${creatineReminderTime}`}
+          </span>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-3">
         <Card className="flex items-center gap-3">

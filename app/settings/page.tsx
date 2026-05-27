@@ -1,9 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Download, Trash2, Upload } from "lucide-react";
+import { Bell, Download, Trash2, Upload } from "lucide-react";
 import { useAppData, updateSettings, importData } from "@/lib/store";
 import type { WeightUnit } from "@/lib/types";
+import {
+  notificationPermission,
+  requestNotificationPermission,
+  showTestNotification,
+  type PermissionState,
+} from "@/lib/notifications";
 import { PageHeader, PageShell } from "@/components/page-shell";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,6 +22,41 @@ export default function SettingsPage() {
   const { settings } = useAppData();
   const fileRef = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState<Message | null>(null);
+  const [perm, setPerm] = useState<PermissionState>("unsupported");
+  const [notifMsg, setNotifMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPerm(notificationPermission());
+  }, []);
+
+  const enableNotifications = async () => {
+    setNotifMsg(null);
+    let p = notificationPermission();
+    if (p === "unsupported") {
+      setNotifMsg("Notifications aren't supported in this browser.");
+      return;
+    }
+    if (p === "default") {
+      p = await requestNotificationPermission();
+      setPerm(p);
+    }
+    if (p === "granted") {
+      updateSettings({ notificationsEnabled: true });
+      const ok = await showTestNotification();
+      setNotifMsg(
+        ok
+          ? "Notifications enabled — you should see a test notification."
+          : "Permission granted, but this device couldn't show a notification.",
+      );
+    } else if (p === "denied") {
+      updateSettings({ notificationsEnabled: false });
+      setNotifMsg(
+        "Notifications are blocked. Enable them in your browser or site settings to get reminders.",
+      );
+    } else {
+      setNotifMsg("Notifications aren't supported in this browser.");
+    }
+  };
 
   const exportData = () => {
     const raw = window.localStorage.getItem("dailybulk:v1") ?? "{}";
@@ -83,6 +124,39 @@ export default function SettingsPage() {
           step={1}
           onChange={(v) => updateSettings({ creatineGoalGrams: v })}
         />
+      </Card>
+
+      <Card className="flex flex-col gap-4">
+        <CardTitle>Creatine reminder</CardTitle>
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-white/70">Daily reminder</span>
+          <Toggle
+            on={settings.creatineReminderEnabled}
+            onChange={(v) => updateSettings({ creatineReminderEnabled: v })}
+          />
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-white/70">Time</span>
+          <input
+            type="time"
+            value={settings.creatineReminderTime}
+            disabled={!settings.creatineReminderEnabled}
+            onChange={(e) =>
+              updateSettings({ creatineReminderTime: e.target.value })
+            }
+            className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-sm tabular-nums outline-none focus:border-accent/60 disabled:opacity-40 [color-scheme:dark]"
+          />
+        </div>
+
+        <Button variant="secondary" onClick={enableNotifications}>
+          <Bell className="h-4 w-4" />
+          {perm === "granted" ? "Test notification" : "Enable notifications"}
+        </Button>
+        {notifMsg && <p className="text-xs text-white/60">{notifMsg}</p>}
+        <p className="text-xs text-white/40">
+          Reminder scheduling is stored on this device. Full background push
+          reminders will be added later.
+        </p>
       </Card>
 
       <Card className="flex flex-col gap-4">
@@ -169,6 +243,31 @@ export default function SettingsPage() {
 
       <p className="pb-2 text-center text-xs text-white/25">DailyBulk · v0.1</p>
     </PageShell>
+  );
+}
+
+function Toggle({
+  on,
+  onChange,
+}: {
+  on: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <button
+      role="switch"
+      aria-checked={on}
+      onClick={() => onChange(!on)}
+      className={`tap relative h-7 w-12 rounded-full transition-colors ${
+        on ? "bg-accent" : "bg-white/15"
+      }`}
+    >
+      <span
+        className={`absolute top-1 h-5 w-5 rounded-full bg-white transition-all ${
+          on ? "left-6" : "left-1"
+        }`}
+      />
+    </button>
   );
 }
 

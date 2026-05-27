@@ -15,6 +15,9 @@ export type Settings = {
   weightUnit: WeightUnit;
   theme: Theme;
   accentColor: string;
+  creatineReminderEnabled: boolean;
+  creatineReminderTime: string; // "HH:MM" (24h)
+  notificationsEnabled?: boolean;
 };
 
 export type FoodEntry = {

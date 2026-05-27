@@ -30,6 +30,9 @@ const defaultSettings: Settings = {
   weightUnit: "kg",
   theme: "dark",
   accentColor: "#6366f1",
+  creatineReminderEnabled: false,
+  creatineReminderTime: "22:00",
+  notificationsEnabled: false,
 };
 
 const defaultData: AppData = {

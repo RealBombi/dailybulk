@@ -3,6 +3,7 @@ import "./globals.css";
 import { BottomNav } from "@/components/bottom-nav";
 import { ServiceWorker } from "@/components/service-worker";
 import { AppRuntime } from "@/components/app-runtime";
+import { ReminderScheduler } from "@/components/reminder-scheduler";
 
 export const metadata: Metadata = {
   title: "DailyBulk",
@@ -39,6 +40,7 @@ export default function RootLayout({
       <body className="font-sans text-white antialiased">
         <ServiceWorker />
         <AppRuntime />
+        <ReminderScheduler />
         <main className="mx-auto min-h-dvh w-full max-w-md px-4 pb-28 pt-[max(1rem,env(safe-area-inset-top))]">
           {children}
         </main>
