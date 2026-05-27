@@ -7,6 +7,7 @@ import { deleteFoodEntry, updateFoodEntry } from "@/lib/store";
 import { round } from "@/lib/utils";
 import { Sheet } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { AmountInput } from "@/components/ui/amount-input";
 
 export function TodayList({ entries }: { entries: FoodEntry[] }) {
   const [editing, setEditing] = useState<FoodEntry | null>(null);
@@ -67,6 +68,7 @@ function EditAmount({
   const scale = (v?: number) => (v === undefined ? undefined : round(v * factor, 1));
 
   const save = () => {
+    if (amount <= 0) return;
     updateFoodEntry(entry.id, {
       amount,
       calories: round(entry.calories * factor),
@@ -84,14 +86,7 @@ function EditAmount({
         <label className="mb-1 block text-xs text-white/50">
           Amount ({entry.amountUnit})
         </label>
-        <input
-          type="number"
-          inputMode="decimal"
-          value={amount}
-          min={0}
-          onChange={(e) => setAmount(Number(e.target.value))}
-          className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-lg font-semibold outline-none focus:border-accent/60"
-        />
+        <AmountInput value={amount} onValueChange={setAmount} aria-label="Amount" />
       </div>
       <p className="text-sm text-white/50">
         {round(entry.calories * factor)} kcal
@@ -99,7 +94,7 @@ function EditAmount({
           ? ` · ${scale(entry.protein)}g protein`
           : ""}
       </p>
-      <Button size="lg" onClick={save}>
+      <Button size="lg" onClick={save} disabled={amount <= 0}>
         Save
       </Button>
     </div>

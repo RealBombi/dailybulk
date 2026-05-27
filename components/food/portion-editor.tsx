@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Bookmark, Plus } from "lucide-react";
 import type { NormalizedFood } from "@/lib/food/types";
-import { scaleNutrition } from "@/lib/food/normalize";
+import { scaleNutrition, suggestPortion } from "@/lib/food/normalize";
 import type { AmountUnit } from "@/lib/types";
 import { addFoodEntry, addSavedMeal } from "@/lib/store";
 import { Button } from "@/components/ui/button";
+import { AmountInput } from "@/components/ui/amount-input";
 
 const UNITS: AmountUnit[] = ["g", "ml", "serving", "piece"];
 
@@ -19,14 +20,17 @@ export function PortionEditor({
   onAdded: () => void;
   date?: string;
 }) {
-  const [amount, setAmount] = useState(100);
-  const [unit, setUnit] = useState<AmountUnit>("g");
+  const suggested = useRef(suggestPortion(food)).current;
+  const [amount, setAmount] = useState(suggested.amount);
+  const [unit, setUnit] = useState<AmountUnit>(suggested.unit);
   const [saved, setSaved] = useState(false);
 
+  const valid = amount > 0;
   const scaled = scaleNutrition(food, amount || 0, unit);
   const source = food.source === "usda" ? "usda" : "open_food_facts";
 
   const add = () => {
+    if (!valid) return;
     addFoodEntry({
       name: food.name,
       brand: food.brand,
@@ -45,6 +49,7 @@ export function PortionEditor({
   };
 
   const save = () => {
+    if (!valid) return;
     addSavedMeal({
       name: food.name,
       brand: food.brand,
@@ -76,14 +81,7 @@ export function PortionEditor({
       <div className="flex items-center gap-3">
         <div className="flex-1">
           <label className="mb-1 block text-xs text-white/50">Amount</label>
-          <input
-            type="number"
-            inputMode="decimal"
-            value={amount}
-            min={0}
-            onChange={(e) => setAmount(Number(e.target.value))}
-            className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-lg font-semibold outline-none focus:border-accent/60"
-          />
+          <AmountInput value={amount} onValueChange={setAmount} aria-label="Amount" />
         </div>
         <div className="flex flex-wrap gap-1.5 pt-5">
           {UNITS.map((u) => (
@@ -109,15 +107,19 @@ export function PortionEditor({
         <Macro label="fat" value={scaled.fat} suffix="g" />
       </div>
 
+      {!valid && (
+        <p className="text-xs text-amber-300">Enter an amount greater than 0.</p>
+      )}
+
       <div className="flex gap-2">
-        <Button onClick={add} size="lg" className="flex-1">
-          <Plus className="h-5 w-5" /> Add to today
+        <Button onClick={add} size="lg" disabled={!valid} className="flex-1">
+          <Plus className="h-5 w-5" /> Add
         </Button>
         <Button
           onClick={save}
           variant="secondary"
           size="lg"
-          disabled={saved}
+          disabled={saved || !valid}
           className="px-4"
         >
           <Bookmark className="h-5 w-5" />
