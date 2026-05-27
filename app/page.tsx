@@ -32,6 +32,7 @@ export default function HomePage() {
   const caloriePercent = clampPercent(totals.calories, settings.calorieGoal);
   const proteinPercent = clampPercent(totals.protein, settings.proteinGoal);
   const remaining = Math.max(settings.calorieGoal - totals.calories, 0);
+  const over = Math.max(totals.calories - settings.calorieGoal, 0);
 
   const status = dailyStatus(
     totals,
@@ -69,8 +70,14 @@ export default function HomePage() {
           <p className="text-sm text-white/50">
             / {settings.calorieGoal} kcal
           </p>
-          <p className="mt-1 text-xs text-accent-soft">
-            {remaining > 0 ? `${remaining} kcal remaining` : "Goal reached"}
+          <p
+            className={`mt-1 text-xs ${over > 0 ? "text-amber-300" : "text-accent-soft"}`}
+          >
+            {over > 0
+              ? `${over} kcal over goal`
+              : remaining > 0
+                ? `${remaining} kcal remaining`
+                : "Goal reached"}
           </p>
         </Gauge>
       </div>

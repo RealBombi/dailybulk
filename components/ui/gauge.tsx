@@ -76,7 +76,9 @@ export function Gauge({
             stroke={`url(#${id})`}
             strokeWidth={strokeWidth}
             strokeLinecap="round"
-            strokeDasharray={`${arcLength} ${gap}`}
+            // Gap spans the whole circumference so the single dash never
+            // repeats — the offset then controls the visible fill length.
+            strokeDasharray={`${arcLength} ${circumference}`}
             initial={false}
             animate={{ strokeDashoffset: dashOffset }}
             transition={{ type: "spring", stiffness: 90, damping: 18 }}
