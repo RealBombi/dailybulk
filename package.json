@@ -4,11 +4,14 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:https": "next dev --experimental-https",
     "build": "next build",
     "start": "next start",
     "gen:icons": "node scripts/gen-icons.mjs"
   },
   "dependencies": {
+    "@zxing/browser": "^0.1.5",
+    "@zxing/library": "^0.21.3",
     "clsx": "^2.1.1",
     "framer-motion": "^11.11.17",
     "lucide-react": "^0.456.0",

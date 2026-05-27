@@ -1,16 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { BrowserMultiFormatReader } from "@zxing/browser";
 import { Camera, Loader2, ScanLine, X } from "lucide-react";
 import type { NormalizedFood } from "@/lib/food/types";
 import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
 import { PortionEditor } from "./portion-editor";
-
-// The native BarcodeDetector API isn't in TS's lib yet.
-type BarcodeDetectorLike = {
-  detect: (source: CanvasImageSource) => Promise<{ rawValue: string }[]>;
-};
 
 export function BarcodeTab({ onAdded }: { onAdded: () => void }) {
   const [code, setCode] = useState("");
@@ -18,6 +14,16 @@ export function BarcodeTab({ onAdded }: { onAdded: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [product, setProduct] = useState<NormalizedFood | null>(null);
   const [scanning, setScanning] = useState(false);
+  const [canScan, setCanScan] = useState(false);
+
+  useEffect(() => {
+    // Camera needs a secure context (https or localhost) and a camera API.
+    setCanScan(
+      typeof window !== "undefined" &&
+        window.isSecureContext &&
+        !!navigator.mediaDevices?.getUserMedia,
+    );
+  }, []);
 
   const lookup = async (barcode: string) => {
     const value = barcode.trim();
@@ -70,9 +76,17 @@ export function BarcodeTab({ onAdded }: { onAdded: () => void }) {
         </Button>
       </form>
 
-      <Button variant="secondary" size="lg" onClick={() => setScanning(true)}>
-        <Camera className="h-5 w-5" /> Scan with camera
-      </Button>
+      {canScan ? (
+        <Button variant="secondary" size="lg" onClick={() => setScanning(true)}>
+          <Camera className="h-5 w-5" /> Scan with camera
+        </Button>
+      ) : (
+        <p className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-xs text-white/50">
+          Camera scanning needs a secure (https) connection. On a local
+          <span className="text-white/70"> http://</span> address, type the
+          barcode number above instead.
+        </p>
+      )}
 
       {error && <p className="text-sm text-red-300">{error}</p>}
 
@@ -113,61 +127,31 @@ function CameraScanner({
   const [message, setMessage] = useState("Point the camera at a barcode");
 
   useEffect(() => {
-    let stream: MediaStream | null = null;
-    let raf = 0;
+    const reader = new BrowserMultiFormatReader();
+    let controls: { stop: () => void } | undefined;
     let cancelled = false;
 
-    const Detector = (window as unknown as {
-      BarcodeDetector?: new (opts?: unknown) => BarcodeDetectorLike;
-    }).BarcodeDetector;
+    reader
+      .decodeFromConstraints(
+        { video: { facingMode: "environment" } },
+        videoRef.current!,
+        (result) => {
+          if (result && !cancelled) {
+            onDetected(result.getText());
+          }
+        },
+      )
+      .then((c) => {
+        if (cancelled) c.stop();
+        else controls = c;
+      })
+      .catch(() => {
+        setMessage("Camera unavailable. Allow camera access, or type the number.");
+      });
 
-    if (!Detector) {
-      setMessage(
-        "This browser can't scan barcodes. Type the number above instead.",
-      );
-      return;
-    }
-
-    const detector = new Detector({
-      formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128"],
-    });
-
-    const start = async () => {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment" },
-        });
-        if (cancelled) return;
-        const video = videoRef.current;
-        if (!video) return;
-        video.srcObject = stream;
-        await video.play();
-        scan();
-      } catch {
-        setMessage("Camera unavailable. Type the barcode number instead.");
-      }
-    };
-
-    const scan = async () => {
-      const video = videoRef.current;
-      if (!video || cancelled) return;
-      try {
-        const codes = await detector.detect(video);
-        if (codes.length > 0 && codes[0].rawValue) {
-          onDetected(codes[0].rawValue);
-          return;
-        }
-      } catch {
-        // keep trying
-      }
-      raf = requestAnimationFrame(scan);
-    };
-
-    start();
     return () => {
       cancelled = true;
-      cancelAnimationFrame(raf);
-      stream?.getTracks().forEach((t) => t.stop());
+      controls?.stop();
     };
   }, [onDetected]);
 
