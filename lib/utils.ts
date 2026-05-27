@@ -48,3 +48,30 @@ export function clampPercent(value: number, goal: number): number {
   if (!goal || goal <= 0) return 0;
   return Math.min(Math.round((value / goal) * 100), 100);
 }
+
+export function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  const m = hex.replace("#", "");
+  const full =
+    m.length === 3
+      ? m
+          .split("")
+          .map((c) => c + c)
+          .join("")
+      : m;
+  const int = parseInt(full, 16);
+  return { r: (int >> 16) & 255, g: (int >> 8) & 255, b: int & 255 };
+}
+
+/** "#6366f1" -> "99 102 241" for use in rgb(var(--accent) / <alpha>). */
+export function hexToRgbChannels(hex: string): string {
+  const { r, g, b } = hexToRgb(hex);
+  return `${r} ${g} ${b}`;
+}
+
+/** Lighten a hex colour toward white by `amount` (0–1). */
+export function lighten(hex: string, amount: number): string {
+  const { r, g, b } = hexToRgb(hex);
+  const mix = (c: number) => Math.round(c + (255 - c) * amount);
+  const toHex = (c: number) => c.toString(16).padStart(2, "0");
+  return `#${toHex(mix(r))}${toHex(mix(g))}${toHex(mix(b))}`;
+}

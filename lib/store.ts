@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { z } from "zod";
 import type {
   AppData,
   CreatineLog,
@@ -41,7 +42,21 @@ const defaultData: AppData = {
 
 let data: AppData = defaultData;
 let loaded = false;
+let hydrated = false;
 const listeners = new Set<() => void>();
+
+/** Build a complete AppData from a partial/unknown shape, filling defaults. */
+function coerce(parsed: Partial<AppData>): AppData {
+  return {
+    ...defaultData,
+    ...parsed,
+    settings: { ...defaultSettings, ...(parsed.settings ?? {}) },
+    foodEntries: parsed.foodEntries ?? [],
+    savedMeals: parsed.savedMeals ?? [],
+    creatineLogs: parsed.creatineLogs ?? [],
+    weightLogs: parsed.weightLogs ?? [],
+  };
+}
 
 function load(): void {
   if (loaded || typeof window === "undefined") return;
@@ -49,21 +64,13 @@ function load(): void {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (raw) {
-      const parsed = JSON.parse(raw) as Partial<AppData>;
-      data = {
-        ...defaultData,
-        ...parsed,
-        settings: { ...defaultSettings, ...(parsed.settings ?? {}) },
-        foodEntries: parsed.foodEntries ?? [],
-        savedMeals: parsed.savedMeals ?? [],
-        creatineLogs: parsed.creatineLogs ?? [],
-        weightLogs: parsed.weightLogs ?? [],
-      };
+      data = coerce(JSON.parse(raw) as Partial<AppData>);
     }
   } catch {
     // Corrupt storage — fall back to defaults rather than crash.
     data = defaultData;
   }
+  hydrated = true;
 }
 
 function persist(): void {
@@ -103,6 +110,48 @@ function getServerSnapshot(): AppData {
 
 export function useAppData(): AppData {
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+}
+
+/** True once localStorage has been read on the client. */
+export function useHydrated(): boolean {
+  return useSyncExternalStore(
+    subscribe,
+    () => hydrated,
+    () => false,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Backup / restore
+// ---------------------------------------------------------------------------
+
+const importSchema = z
+  .object({
+    settings: z.record(z.unknown()).optional(),
+    foodEntries: z.array(z.object({ id: z.string() }).passthrough()).optional(),
+    savedMeals: z.array(z.object({ id: z.string() }).passthrough()).optional(),
+    creatineLogs: z.array(z.object({ id: z.string() }).passthrough()).optional(),
+    weightLogs: z.array(z.object({ id: z.string() }).passthrough()).optional(),
+  })
+  .refine(
+    (d) =>
+      d.foodEntries || d.savedMeals || d.creatineLogs || d.weightLogs || d.settings,
+    "File does not look like a DailyBulk backup.",
+  );
+
+export type ImportResult = { ok: true } | { ok: false; error: string };
+
+/** Validate a parsed backup object and, if valid, replace all app data. */
+export function importData(raw: unknown): ImportResult {
+  const parsed = importSchema.safeParse(raw);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Invalid backup file.",
+    };
+  }
+  set(coerce(parsed.data as Partial<AppData>));
+  return { ok: true };
 }
 
 // ---------------------------------------------------------------------------
