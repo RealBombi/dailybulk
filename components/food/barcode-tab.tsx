@@ -2,10 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { BrowserMultiFormatReader } from "@zxing/browser";
-import { Camera, Loader2, ScanLine, X } from "lucide-react";
+import { motion } from "framer-motion";
+import { Camera, ChevronLeft, Loader2, ScanLine } from "lucide-react";
 import type { NormalizedFood } from "@/lib/food/types";
 import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
+import { Portal } from "@/components/ui/portal";
 import { PortionEditor } from "./portion-editor";
 
 export function BarcodeTab({
@@ -131,7 +133,7 @@ function CameraScanner({
   onClose: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [message, setMessage] = useState("Point the camera at a barcode");
+  const [message, setMessage] = useState("Align the barcode inside the frame");
 
   useEffect(() => {
     const reader = new BrowserMultiFormatReader();
@@ -163,24 +165,52 @@ function CameraScanner({
   }, [onDetected]);
 
   return (
-    <div className="fixed inset-0 z-[70] flex flex-col items-center justify-center bg-black/90">
-      <button
-        onClick={onClose}
-        className="absolute right-4 top-4 tap rounded-full bg-white/10 p-2"
-        aria-label="Close scanner"
-      >
-        <X className="h-6 w-6" />
-      </button>
-      <div className="relative aspect-square w-[80%] max-w-sm overflow-hidden rounded-3xl border border-white/20">
-        <video
-          ref={videoRef}
-          muted
-          playsInline
-          className="h-full w-full object-cover"
-        />
-        <div className="pointer-events-none absolute inset-x-6 top-1/2 h-0.5 -translate-y-1/2 bg-accent shadow-glow" />
+    <Portal>
+      <div className="fixed inset-0 z-[70] bg-black">
+      <video
+        ref={videoRef}
+        muted
+        playsInline
+        className="absolute inset-0 h-full w-full object-cover"
+      />
+      <div className="absolute inset-0 bg-black/30" />
+
+      {/* Top bar */}
+      <div className="absolute inset-x-0 top-0 flex items-center justify-between gap-3 p-4 pt-[max(1rem,env(safe-area-inset-top))]">
+        <button
+          onClick={onClose}
+          aria-label="Close scanner"
+          className="tap flex items-center gap-1 rounded-full bg-white/10 py-2 pl-2 pr-3 text-sm font-medium text-white backdrop-blur"
+        >
+          <ChevronLeft className="h-5 w-5" /> Back
+        </button>
+        <span className="rounded-full bg-white/10 px-3 py-2 text-sm text-white backdrop-blur">
+          Scan barcode
+        </span>
+        <span className="w-[72px]" aria-hidden />
       </div>
-      <p className="mt-6 px-8 text-center text-sm text-white/60">{message}</p>
-    </div>
+
+      {/* Centered scan frame with corner brackets + animated line */}
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div className="relative aspect-[5/3] w-[82%] max-w-sm">
+          <span className="absolute left-0 top-0 h-8 w-8 rounded-tl-2xl border-l-2 border-t-2 border-white/85" />
+          <span className="absolute right-0 top-0 h-8 w-8 rounded-tr-2xl border-r-2 border-t-2 border-white/85" />
+          <span className="absolute bottom-0 left-0 h-8 w-8 rounded-bl-2xl border-b-2 border-l-2 border-white/85" />
+          <span className="absolute bottom-0 right-0 h-8 w-8 rounded-br-2xl border-b-2 border-r-2 border-white/85" />
+          <motion.div
+            className="absolute inset-x-3 h-[3px] rounded-full bg-accent shadow-[0_0_14px_2px_rgb(var(--accent)/0.7)]"
+            initial={{ top: "10%" }}
+            animate={{ top: ["10%", "90%", "10%"] }}
+            transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
+          />
+        </div>
+      </div>
+
+      {/* Instruction */}
+      <p className="absolute inset-x-0 bottom-[max(2rem,env(safe-area-inset-bottom))] px-8 text-center text-sm text-white/80">
+        {message}
+      </p>
+      </div>
+    </Portal>
   );
 }

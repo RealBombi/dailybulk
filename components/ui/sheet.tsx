@@ -3,6 +3,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
 import { useEffect } from "react";
+import { Portal } from "./portal";
 
 type Props = {
   open: boolean;
@@ -24,9 +25,10 @@ export function Sheet({ open, onClose, title, children }: Props) {
   }, [open, onClose]);
 
   return (
-    <AnimatePresence>
-      {open && (
-        <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center">
+    <Portal>
+      <AnimatePresence>
+        {open && (
+          <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center">
           <motion.div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             initial={{ opacity: 0 }}
@@ -57,5 +59,6 @@ export function Sheet({ open, onClose, title, children }: Props) {
         </div>
       )}
     </AnimatePresence>
+    </Portal>
   );
 }
