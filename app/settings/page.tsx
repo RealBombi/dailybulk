@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Bell, Download, Trash2, Upload } from "lucide-react";
 import { useAppData, updateSettings, importData } from "@/lib/store";
+import { totalsForDate } from "@/lib/selectors";
+import { todayStr } from "@/lib/utils";
 import type { WeightUnit } from "@/lib/types";
 import {
   notificationPermission,
@@ -19,7 +21,8 @@ const ACCENTS = ["#6366f1", "#22d3ee", "#34d399", "#f472b6", "#fbbf24"];
 type Message = { tone: "ok" | "err"; text: string };
 
 export default function SettingsPage() {
-  const { settings } = useAppData();
+  const data = useAppData();
+  const { settings } = data;
   const fileRef = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState<Message | null>(null);
   const [perm, setPerm] = useState<PermissionState>("unsupported");
@@ -160,6 +163,48 @@ export default function SettingsPage() {
       </Card>
 
       <Card className="flex flex-col gap-4">
+        <CardTitle>Evening calorie reminder</CardTitle>
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-white/70">Daily reminder</span>
+          <Toggle
+            on={settings.calorieReminderEnabled}
+            onChange={(v) => updateSettings({ calorieReminderEnabled: v })}
+          />
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-white/70">Time</span>
+          <input
+            type="time"
+            value={settings.calorieReminderTime}
+            disabled={!settings.calorieReminderEnabled}
+            onChange={(e) =>
+              updateSettings({ calorieReminderTime: e.target.value })
+            }
+            className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-sm tabular-nums outline-none focus:border-accent/60 disabled:opacity-40 [color-scheme:dark]"
+          />
+        </div>
+        <NumberSetting
+          label="Threshold"
+          suffix="kcal"
+          value={settings.calorieReminderThreshold}
+          step={50}
+          onChange={(v) => updateSettings({ calorieReminderThreshold: v })}
+        />
+        <p className="text-xs text-white/40">
+          Reminds you if you have more than {settings.calorieReminderThreshold}{" "}
+          kcal left at this time.
+        </p>
+        {settings.calorieReminderEnabled && (
+          <CalorieReminderStatus />
+        )}
+        {settings.calorieReminderEnabled && perm !== "granted" && (
+          <p className="text-xs text-amber-300">
+            Enable notifications above to allow this reminder.
+          </p>
+        )}
+      </Card>
+
+      <Card className="flex flex-col gap-4">
         <CardTitle>Preferences</CardTitle>
         <div className="flex items-center justify-between">
           <span className="text-sm text-white/70">Weight unit</span>
@@ -244,6 +289,22 @@ export default function SettingsPage() {
       <p className="pb-2 text-center text-xs text-white/25">DailyBulk · v0.1</p>
     </PageShell>
   );
+}
+
+function CalorieReminderStatus() {
+  const data = useAppData();
+  const { settings } = data;
+  const todayCalories = totalsForDate(data, todayStr()).calories;
+  const remaining = Math.max(settings.calorieGoal - todayCalories, 0);
+  let text: string;
+  if (remaining <= 0) {
+    text = "Calorie goal hit — no reminder needed today";
+  } else if (remaining < settings.calorieReminderThreshold) {
+    text = `Only ${remaining} kcal remaining — no reminder needed`;
+  } else {
+    text = `Calorie reminder set for ${settings.calorieReminderTime} if more than ${settings.calorieReminderThreshold} kcal remain`;
+  }
+  return <p className="text-xs text-white/60">{text}</p>;
 }
 
 function Toggle({
