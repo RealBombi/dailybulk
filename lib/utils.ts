@@ -39,6 +39,24 @@ export function shortDay(dateStr: string): string {
   return parseDateStr(dateStr).toLocaleDateString(undefined, { weekday: "short" });
 }
 
+/** The 7 dates of the current ISO week (Monday → Sunday). */
+export function currentWeekDates(reference: Date = new Date()): string[] {
+  const d = new Date(
+    reference.getFullYear(),
+    reference.getMonth(),
+    reference.getDate(),
+  );
+  const dow = (d.getDay() + 6) % 7; // Mon=0 … Sun=6
+  d.setDate(d.getDate() - dow);
+  const days: string[] = [];
+  for (let i = 0; i < 7; i++) {
+    const x = new Date(d);
+    x.setDate(d.getDate() + i);
+    days.push(toDateStr(x));
+  }
+  return days;
+}
+
 export function round(n: number, digits = 0): number {
   const f = Math.pow(10, digits);
   return Math.round(n * f) / f;
