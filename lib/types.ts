@@ -18,6 +18,9 @@ export type Settings = {
   creatineReminderEnabled: boolean;
   creatineReminderTime: string; // "HH:MM" (24h)
   notificationsEnabled?: boolean;
+  calorieReminderEnabled: boolean;
+  calorieReminderTime: string; // "HH:MM" (24h)
+  calorieReminderThreshold: number; // kcal
 };
 
 export type FoodEntry = {

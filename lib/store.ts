@@ -33,6 +33,9 @@ const defaultSettings: Settings = {
   creatineReminderEnabled: false,
   creatineReminderTime: "22:00",
   notificationsEnabled: false,
+  calorieReminderEnabled: false,
+  calorieReminderTime: "21:00",
+  calorieReminderThreshold: 700,
 };
 
 const defaultData: AppData = {

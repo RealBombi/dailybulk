@@ -2,8 +2,9 @@
 
 export type PermissionState = NotificationPermission | "unsupported";
 
-/** localStorage key holding the last-sent marker ("YYYY-MM-DD|HH:MM"). */
+/** Last-sent markers ("YYYY-MM-DD|HH:MM"). One per reminder type. */
 export const REMINDER_SENT_KEY = "dailybulk:lastCreatineReminder";
+export const CALORIE_REMINDER_SENT_KEY = "dailybulk:lastCalorieReminder";
 
 export function canUseNotifications(): boolean {
   return typeof window !== "undefined" && "Notification" in window;
@@ -32,6 +33,7 @@ export async function requestNotificationPermission(): Promise<PermissionState> 
 export async function showNotification(
   title: string,
   body?: string,
+  tag = "dailybulk-reminder",
 ): Promise<boolean> {
   if (!canUseNotifications() || Notification.permission !== "granted") {
     return false;
@@ -40,7 +42,7 @@ export async function showNotification(
     body,
     icon: "/icons/icon-192.png",
     badge: "/icons/icon-192.png",
-    tag: "dailybulk-creatine-reminder",
+    tag,
   };
   try {
     if ("serviceWorker" in navigator) {
