@@ -13,6 +13,7 @@ import { CreatineCard } from "@/components/dashboard/creatine-card";
 import { WeightCard } from "@/components/dashboard/weight-card";
 import { QuickActions } from "@/components/dashboard/quick-actions";
 import { WeeklySummary } from "@/components/dashboard/weekly-summary";
+import { HomeQuickAdd } from "@/components/dashboard/home-quick-add";
 
 const toneStyles: Record<string, string> = {
   good: "border-emerald-500/30 bg-emerald-500/10 text-emerald-200",
@@ -126,6 +127,7 @@ export default function HomePage() {
       </motion.div>
 
       <QuickActions />
+      <HomeQuickAdd />
       <CreatineCard />
       <WeightCard />
       <WeeklySummary />
