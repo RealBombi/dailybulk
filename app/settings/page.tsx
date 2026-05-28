@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Bell, Download, Sparkles, Trash2, Upload } from "lucide-react";
 import { useAppData, updateSettings, importData, STORAGE_KEY } from "@/lib/store";
-import { totalsForDate } from "@/lib/selectors";
+import { totalsForDate, latestWeight } from "@/lib/selectors";
 import { todayStr } from "@/lib/utils";
 import type { WeightUnit } from "@/lib/types";
 import {
@@ -131,6 +131,8 @@ export default function SettingsPage() {
         />
       </Card>
 
+      <BodyGoalSettings router={router} />
+
       <Card className="flex flex-col gap-4">
         <CardTitle>Creatine reminder</CardTitle>
         <div className="flex items-center justify-between">
@@ -244,13 +246,6 @@ export default function SettingsPage() {
             ))}
           </div>
         </div>
-        <Button
-          variant="secondary"
-          onClick={() => router.push("/welcome")}
-          className="mt-1"
-        >
-          <Sparkles className="h-4 w-4" /> Restart setup / recalculate goals
-        </Button>
       </Card>
 
       <Card className="flex flex-col gap-3">
@@ -297,6 +292,71 @@ export default function SettingsPage() {
 
       <p className="pb-2 text-center text-xs text-white/25">DailyFuel · v0.1</p>
     </PageShell>
+  );
+}
+
+function BodyGoalSettings({
+  router,
+}: {
+  router: ReturnType<typeof useRouter>;
+}) {
+  const data = useAppData();
+  const { settings } = data;
+  const latest = latestWeight(data);
+  const target = settings.targetWeightKg;
+  const speed = settings.goalSpeedKgPerWeek;
+  const goalLabel =
+    settings.goalType === "lose"
+      ? "Lose weight"
+      : settings.goalType === "maintain"
+        ? "Maintain"
+        : settings.goalType === "lean_bulk"
+          ? "Lean gain"
+          : settings.goalType === "bulk_faster"
+            ? "Gain faster"
+            : "—";
+  const speedLabel =
+    !speed
+      ? "Maintain"
+      : `${speed > 0 ? "+" : ""}${speed} ${settings.weightUnit}/week`;
+
+  return (
+    <Card className="flex flex-col gap-4">
+      <CardTitle>Body goal</CardTitle>
+      {target === undefined ? (
+        <p className="text-xs text-white/45">
+          No body goal yet. Run the setup to choose a target weight and weekly
+          speed.
+        </p>
+      ) : (
+        <div className="flex flex-col gap-2 text-sm">
+          <Row label="Goal" value={goalLabel} />
+          <Row
+            label="Current weight"
+            value={
+              latest
+                ? `${latest.weight} ${settings.weightUnit}`
+                : "—"
+            }
+          />
+          <Row label="Target weight" value={`${target} ${settings.weightUnit}`} />
+          <Row label="Weekly speed" value={speedLabel} />
+        </div>
+      )}
+      <Button variant="secondary" onClick={() => router.push("/welcome")}>
+        <Sparkles className="h-4 w-4" />
+        {target === undefined ? "Set up body goal" : "Restart setup / recalculate goals"}
+      </Button>
+    </Card>
+  );
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-white/55">{label}</span>
+      <span className="font-medium text-white">{value}</span>
+    </div>
   );
 }
 
