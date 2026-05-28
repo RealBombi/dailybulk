@@ -20,13 +20,18 @@ import {
   ACTIVITY_LABELS,
   GOAL_LABELS,
   SEX_LABELS,
+  SPEED_OPTIONS,
   calculate,
+  defaultSpeed,
+  weeksToGoal,
   type Activity,
   type CalculatorInputs,
   type CalculatorResult,
   type GoalType,
   type Sex,
 } from "@/lib/onboarding";
+import { logWeight } from "@/lib/store";
+import { todayStr } from "@/lib/utils";
 import type { WeightUnit } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import Loading from "../loading";
@@ -38,12 +43,21 @@ type Step =
   | "result"
   | "manual";
 
+type BodyGoal = {
+  goalType: GoalType;
+  currentKg: number;
+  targetKg: number;
+  speed: number;
+  weeks: number | null;
+};
+
 export default function WelcomePage() {
   const router = useRouter();
   const data = useAppData();
   const hydrated = useHydrated();
   const [step, setStep] = useState<Step>("welcome");
   const [result, setResult] = useState<CalculatorResult | null>(null);
+  const [bodyGoal, setBodyGoal] = useState<BodyGoal | null>(null);
 
   if (!hydrated) return <Loading />;
 
@@ -78,24 +92,38 @@ export default function WelcomePage() {
             <CalcStep
               defaultUnit={data.settings.weightUnit}
               onBack={() => setStep("choose")}
-              onResult={(r) => {
+              onResult={(r, bg) => {
                 setResult(r);
+                setBodyGoal(bg);
                 setStep("result");
               }}
             />
           </Slide>
         )}
-        {step === "result" && result && (
+        {step === "result" && result && bodyGoal && (
           <Slide key="result">
             <ResultStep
               result={result}
+              bodyGoal={bodyGoal}
               onBack={() => setStep("calc")}
               onUse={() => {
                 updateSettings({
                   calorieGoal: result.calorieGoal,
                   proteinGoal: result.proteinGoal,
                   creatineGoalGrams: result.creatineGoalGrams,
+                  goalType: bodyGoal.goalType,
+                  targetWeightKg: bodyGoal.targetKg,
+                  goalSpeedKgPerWeek: bodyGoal.speed,
                 });
+                // Seed a starting weight log so the body-goal card has data
+                // immediately — only if the user hasn't logged any weight yet.
+                if (data.weightLogs.length === 0) {
+                  logWeight(
+                    todayStr(),
+                    bodyGoal.currentKg,
+                    data.settings.weightUnit,
+                  );
+                }
                 finish();
               }}
               onManual={() => setStep("manual")}
@@ -293,7 +321,7 @@ function CalcStep({
 }: {
   defaultUnit: WeightUnit;
   onBack: () => void;
-  onResult: (r: CalculatorResult) => void;
+  onResult: (r: CalculatorResult, b: BodyGoal) => void;
 }) {
   const [goal, setGoal] = useState<GoalType>("lean_bulk");
   const [sex, setSex] = useState<Sex>("male");
@@ -302,7 +330,22 @@ function CalcStep({
   const [weight, setWeight] = useState("80");
   const [activity, setActivity] = useState<Activity>("moderately");
   const [trainingDays, setTrainingDays] = useState(4);
+  const [target, setTarget] = useState("75");
+  const [speed, setSpeed] = useState<number>(defaultSpeed("lean_bulk") ?? 0.25);
   const [error, setError] = useState<string | null>(null);
+
+  // When the goal changes, reset the speed pick to its sensible default and
+  // nudge the target toward something matching the direction.
+  const onGoalChange = (g: GoalType) => {
+    setGoal(g);
+    const s = defaultSpeed(g);
+    if (s !== undefined) setSpeed(s);
+    const cur = Number(weight) || 0;
+    if (g === "lose" && cur > 0) setTarget(String(Math.max(40, cur - 5)));
+    else if ((g === "lean_bulk" || g === "bulk_faster") && cur > 0)
+      setTarget(String(cur + 5));
+    else if (g === "maintain") setTarget(String(cur || 0));
+  };
 
   const submit = () => {
     const ageN = Number(age);
@@ -316,6 +359,37 @@ function CalcStep({
       setError("Please enter a realistic age, height (cm) and weight (kg).");
       return;
     }
+
+    // Target weight validation (skipped for maintain — we just use current)
+    let targetN: number;
+    let speedN: number;
+    if (goal === "maintain") {
+      targetN = weightN;
+      speedN = 0;
+    } else {
+      targetN = Number(target);
+      speedN = speed;
+      if (!targetN || targetN < 30 || targetN > 300) {
+        setError("Pick a realistic target weight in kg.");
+        return;
+      }
+      if (goal === "lose" && targetN >= weightN) {
+        setError("Your target should be lower than your current weight to lose.");
+        return;
+      }
+      if (
+        (goal === "lean_bulk" || goal === "bulk_faster") &&
+        targetN <= weightN
+      ) {
+        setError("Your target should be higher than your current weight to gain.");
+        return;
+      }
+      if (!speedN) {
+        setError("Pick a weekly speed to continue.");
+        return;
+      }
+    }
+
     const inputs: CalculatorInputs = {
       goal,
       sex,
@@ -325,8 +399,17 @@ function CalcStep({
       activity,
       trainingDays,
     };
-    onResult(calculate(inputs));
+    const bg: BodyGoal = {
+      goalType: goal,
+      currentKg: weightN,
+      targetKg: targetN,
+      speed: speedN,
+      weeks: weeksToGoal(weightN, targetN, speedN),
+    };
+    onResult(calculate(inputs), bg);
   };
+
+  const speedOpts = SPEED_OPTIONS[goal];
 
   return (
     <div className="flex flex-1 flex-col px-4">
@@ -343,7 +426,7 @@ function CalcStep({
               sub: g.sub,
             }))}
             value={goal}
-            onChange={(v) => setGoal(v as GoalType)}
+            onChange={(v) => onGoalChange(v as GoalType)}
           />
         </Field>
 
@@ -388,6 +471,26 @@ function CalcStep({
           />
         </Field>
 
+        {goal !== "maintain" && (
+          <>
+            <Field label="Target weight (kg)">
+              <NumInput value={target} onChange={setTarget} />
+            </Field>
+            <Field label="Goal speed">
+              <ChipGrid
+                cols={speedOpts.length === 3 ? 3 : 2}
+                options={speedOpts.map((s) => ({
+                  id: String(s.value),
+                  label: s.label,
+                  sub: s.sub,
+                }))}
+                value={String(speed)}
+                onChange={(v) => setSpeed(Number(v))}
+              />
+            </Field>
+          </>
+        )}
+
         {error && <p className="text-sm text-red-300">{error}</p>}
 
         <Button size="lg" onClick={submit}>
@@ -404,15 +507,27 @@ function CalcStep({
 
 function ResultStep({
   result,
+  bodyGoal,
   onBack,
   onUse,
   onManual,
 }: {
   result: CalculatorResult;
+  bodyGoal: BodyGoal;
   onBack: () => void;
   onUse: () => void;
   onManual: () => void;
 }) {
+  const maintain = bodyGoal.goalType === "maintain";
+  const speedLabel = maintain
+    ? `Maintain around ${bodyGoal.targetKg} kg`
+    : `${bodyGoal.speed > 0 ? "+" : ""}${bodyGoal.speed} kg/week`;
+  const timelineLabel =
+    maintain
+      ? "—"
+      : bodyGoal.weeks === null
+        ? "—"
+        : `about ${bodyGoal.weeks} weeks`;
   return (
     <div className="flex flex-1 flex-col px-4">
       <BackBar onBack={onBack} />
@@ -439,11 +554,17 @@ function ResultStep({
             label="Creatine"
             value={`${result.creatineGoalGrams} g daily`}
           />
+          <ResultRow
+            label="Target weight"
+            value={`${bodyGoal.targetKg} kg`}
+          />
+          <ResultRow label="Planned change" value={speedLabel} />
+          <ResultRow label="Estimated time" value={timelineLabel} />
         </div>
 
         <p className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-xs text-white/50">
-          These are starting estimates. Track your weight trend for 2–3 weeks
-          and adjust if needed.
+          This is only an estimate. Adjust based on your real weight trend over
+          2–3 weeks.
         </p>
       </div>
 
