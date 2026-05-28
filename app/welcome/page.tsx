@@ -159,7 +159,7 @@ function WelcomeStep({
           <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-accent to-accent-soft shadow-glow">
             <Sparkles className="h-8 w-8 text-white" />
           </div>
-          <h1 className="text-3xl font-bold tracking-tight">DailyBulk</h1>
+          <h1 className="text-3xl font-bold tracking-tight">DailyFuel</h1>
           <p className="max-w-xs text-sm text-white/55">
             A simple, fast way to track calories, protein, creatine and weight —
             and actually stay consistent.

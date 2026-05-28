@@ -90,7 +90,7 @@ export function ReminderScheduler() {
           void showNotification(
             "Creatine reminder",
             `Don't forget your creatine (${s.creatineGoalGrams}g).`,
-            "dailybulk-creatine",
+            "dailyfuel-creatine",
           );
         }
       }
@@ -125,9 +125,9 @@ export function ReminderScheduler() {
         if (due) {
           writeMarker(CALORIE_REMINDER_SENT_KEY, marker);
           void showNotification(
-            "DailyBulk calorie reminder",
+            "DailyFuel calorie reminder",
             `You still need ${remaining} kcal today.`,
-            "dailybulk-calorie",
+            "dailyfuel-calorie",
           );
         }
       }

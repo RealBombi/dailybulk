@@ -1,4 +1,4 @@
-// Generates DailyBulk PWA icons (a gauge ring mark) as PNGs using only Node
+// Generates DailyFuel PWA icons (a gauge ring mark) as PNGs using only Node
 // builtins — no native image libraries required. Run: npm run gen:icons
 import { deflateSync } from "node:zlib";
 import { writeFileSync, mkdirSync } from "node:fs";

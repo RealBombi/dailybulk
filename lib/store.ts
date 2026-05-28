@@ -21,7 +21,9 @@ import { todayStr, uid } from "./utils";
  * functions, not touching the UI.
  */
 
-const STORAGE_KEY = "dailybulk:v1";
+// Legacy storage key, kept stable across the DailyFuel rebrand so existing
+// users' data and backups continue to load. Do not rename without a migration.
+export const STORAGE_KEY = "dailybulk:v1";
 
 const defaultSettings: Settings = {
   calorieGoal: 3000,
@@ -160,7 +162,7 @@ const importSchema = z
       d.weightLogs ||
       d.settings ||
       d.favorites,
-    "File does not look like a DailyBulk backup.",
+    "File does not look like a DailyFuel backup.",
   );
 
 export type ImportResult = { ok: true } | { ok: false; error: string };

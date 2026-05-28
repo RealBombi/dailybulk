@@ -1,7 +1,7 @@
 {
-  "name": "DailyBulk",
-  "short_name": "DailyBulk",
-  "description": "Track calories, protein, creatine and bodyweight. Simple. Daily.",
+  "name": "DailyFuel",
+  "short_name": "DailyFuel",
+  "description": "Track calories, protein, creatine and weight. Cut, maintain or gain.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

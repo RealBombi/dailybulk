@@ -1,5 +1,7 @@
-// DailyBulk service worker — app-shell caching for offline-friendly loads.
-const CACHE = "dailybulk-v1";
+// DailyFuel service worker — app-shell caching for offline-friendly loads.
+// Cache name bumped for the rebrand; the activate handler deletes the old
+// "dailybulk-v1" cache automatically, so clients pick up new branding.
+const CACHE = "dailyfuel-v1";
 const APP_SHELL = ["/", "/food", "/creatine", "/weight", "/settings", "/manifest.json"];
 
 self.addEventListener("install", (event) => {

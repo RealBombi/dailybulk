@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Bell, Download, Sparkles, Trash2, Upload } from "lucide-react";
-import { useAppData, updateSettings, importData } from "@/lib/store";
+import { useAppData, updateSettings, importData, STORAGE_KEY } from "@/lib/store";
 import { totalsForDate } from "@/lib/selectors";
 import { todayStr } from "@/lib/utils";
 import type { WeightUnit } from "@/lib/types";
@@ -64,12 +64,12 @@ export default function SettingsPage() {
   };
 
   const exportData = () => {
-    const raw = window.localStorage.getItem("dailybulk:v1") ?? "{}";
+    const raw = window.localStorage.getItem(STORAGE_KEY) ?? "{}";
     const blob = new Blob([raw], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `dailybulk-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `dailyfuel-backup-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -94,10 +94,10 @@ export default function SettingsPage() {
   const reset = () => {
     if (
       window.confirm(
-        "Delete all DailyBulk data on this device? This cannot be undone.",
+        "Delete all DailyFuel data on this device? This cannot be undone.",
       )
     ) {
-      window.localStorage.removeItem("dailybulk:v1");
+      window.localStorage.removeItem(STORAGE_KEY);
       window.location.reload();
     }
   };
@@ -295,7 +295,7 @@ export default function SettingsPage() {
         </Button>
       </Card>
 
-      <p className="pb-2 text-center text-xs text-white/25">DailyBulk · v0.1</p>
+      <p className="pb-2 text-center text-xs text-white/25">DailyFuel · v0.1</p>
     </PageShell>
   );
 }

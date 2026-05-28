@@ -6,14 +6,15 @@ import { AppRuntime } from "@/components/app-runtime";
 import { ReminderScheduler } from "@/components/reminder-scheduler";
 
 export const metadata: Metadata = {
-  title: "DailyBulk",
-  description: "Track calories, protein, creatine and bodyweight. Simple. Daily.",
+  title: "DailyFuel",
+  description:
+    "Track calories, protein, creatine and weight. Cut, maintain or gain — simple and daily.",
   manifest: "/manifest.json",
-  applicationName: "DailyBulk",
+  applicationName: "DailyFuel",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "DailyBulk",
+    title: "DailyFuel",
   },
   icons: {
     icon: "/icons/icon-512.png",

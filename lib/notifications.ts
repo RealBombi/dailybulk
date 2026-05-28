@@ -2,7 +2,9 @@
 
 export type PermissionState = NotificationPermission | "unsupported";
 
-/** Last-sent markers ("YYYY-MM-DD|HH:MM"). One per reminder type. */
+// Last-sent markers ("YYYY-MM-DD|HH:MM"), one per reminder type.
+// NOTE: the "dailybulk:" prefix is a legacy storage key kept stable across the
+// DailyFuel rebrand so existing installs don't re-fire today's reminders.
 export const REMINDER_SENT_KEY = "dailybulk:lastCreatineReminder";
 export const CALORIE_REMINDER_SENT_KEY = "dailybulk:lastCalorieReminder";
 
@@ -33,7 +35,7 @@ export async function requestNotificationPermission(): Promise<PermissionState> 
 export async function showNotification(
   title: string,
   body?: string,
-  tag = "dailybulk-reminder",
+  tag = "dailyfuel-reminder",
 ): Promise<boolean> {
   if (!canUseNotifications() || Notification.permission !== "granted") {
     return false;
@@ -65,7 +67,7 @@ export async function showNotification(
 
 export function showTestNotification(): Promise<boolean> {
   return showNotification(
-    "DailyBulk reminder test",
+    "DailyFuel reminder test",
     "Notifications are working.",
   );
 }

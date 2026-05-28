@@ -48,7 +48,7 @@ export async function getByBarcode(
   const res = await fetch(url, {
     headers: {
       Accept: "application/json",
-      "User-Agent": "DailyBulk/0.1 (personal fitness tracker)",
+      "User-Agent": "DailyFuel/0.1 (personal fitness tracker)",
     },
   });
   if (!res.ok) return null;
@@ -72,7 +72,7 @@ export async function searchOpenFoodFacts(
   const res = await fetch(url, {
     headers: {
       Accept: "application/json",
-      "User-Agent": "DailyBulk/0.1 (personal fitness tracker)",
+      "User-Agent": "DailyFuel/0.1 (personal fitness tracker)",
     },
   });
   if (!res.ok) return [];

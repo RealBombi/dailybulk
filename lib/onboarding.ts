@@ -92,8 +92,8 @@ export function calculate(inputs: CalculatorInputs): CalculatorResult {
 export const GOAL_LABELS: { id: GoalType; label: string; sub: string }[] = [
   { id: "lose", label: "Lose weight", sub: "−300 kcal" },
   { id: "maintain", label: "Maintain", sub: "stay the same" },
-  { id: "lean_bulk", label: "Lean bulk", sub: "+300 kcal" },
-  { id: "bulk_faster", label: "Bulk faster", sub: "+500 kcal" },
+  { id: "lean_bulk", label: "Lean gain", sub: "+300 kcal" },
+  { id: "bulk_faster", label: "Gain faster", sub: "+500 kcal" },
 ];
 
 export const SEX_LABELS: { id: Sex; label: string }[] = [

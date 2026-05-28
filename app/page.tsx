@@ -60,7 +60,7 @@ export default function HomePage() {
     <PageShell>
       <header className="pt-1">
         <p className="text-sm text-white/45">{greeting}</p>
-        <h1 className="text-2xl font-bold tracking-tight">DailyBulk</h1>
+        <h1 className="text-2xl font-bold tracking-tight">DailyFuel</h1>
       </header>
 
       {/* Calorie gauge */}
