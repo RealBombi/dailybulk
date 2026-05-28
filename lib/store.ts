@@ -41,6 +41,7 @@ const defaultData: AppData = {
   savedMeals: [],
   creatineLogs: [],
   weightLogs: [],
+  favorites: [],
 };
 
 let data: AppData = defaultData;
@@ -58,6 +59,7 @@ function coerce(parsed: Partial<AppData>): AppData {
     savedMeals: parsed.savedMeals ?? [],
     creatineLogs: parsed.creatineLogs ?? [],
     weightLogs: parsed.weightLogs ?? [],
+    favorites: parsed.favorites ?? [],
   };
 }
 
@@ -135,10 +137,16 @@ const importSchema = z
     savedMeals: z.array(z.object({ id: z.string() }).passthrough()).optional(),
     creatineLogs: z.array(z.object({ id: z.string() }).passthrough()).optional(),
     weightLogs: z.array(z.object({ id: z.string() }).passthrough()).optional(),
+    favorites: z.array(z.string()).optional(),
   })
   .refine(
     (d) =>
-      d.foodEntries || d.savedMeals || d.creatineLogs || d.weightLogs || d.settings,
+      d.foodEntries ||
+      d.savedMeals ||
+      d.creatineLogs ||
+      d.weightLogs ||
+      d.settings ||
+      d.favorites,
     "File does not look like a DailyBulk backup.",
   );
 
@@ -213,6 +221,20 @@ export function addSavedMeal(
 
 export function deleteSavedMeal(id: string): void {
   set({ ...data, savedMeals: data.savedMeals.filter((m) => m.id !== id) });
+}
+
+// ---------------------------------------------------------------------------
+// Favorites
+// ---------------------------------------------------------------------------
+
+export function toggleFavorite(key: string): void {
+  const has = data.favorites.includes(key);
+  set({
+    ...data,
+    favorites: has
+      ? data.favorites.filter((k) => k !== key)
+      : [key, ...data.favorites],
+  });
 }
 
 // ---------------------------------------------------------------------------

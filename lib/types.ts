@@ -76,4 +76,6 @@ export type AppData = {
   savedMeals: SavedMeal[];
   creatineLogs: CreatineLog[];
   weightLogs: WeightLog[];
+  /** Dedupe fingerprints of foods the user has starred. */
+  favorites: string[];
 };
