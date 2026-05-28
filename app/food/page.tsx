@@ -12,6 +12,8 @@ import { SavedMealsTab } from "@/components/food/saved-meals-tab";
 import { ManualAddTab } from "@/components/food/manual-add-tab";
 import { QuickAddTab } from "@/components/food/quick-add-tab";
 import { TodayList } from "@/components/food/today-list";
+import { QuickAddList } from "@/components/food/quick-add-list";
+import { CopyFromYesterday } from "@/components/food/copy-from-yesterday";
 import { useAppData } from "@/lib/store";
 import { entriesForDate, totalsForDate } from "@/lib/selectors";
 import { addDays, parseDateStr, round, todayStr } from "@/lib/utils";
@@ -92,6 +94,14 @@ function FoodContent() {
           <ChevronRight className="h-5 w-5" />
         </button>
       </div>
+
+      <QuickAddList date={selectedDate} onAdded={onAdded} />
+      <CopyFromYesterday
+        date={selectedDate}
+        onCopied={(n) => {
+          if (n > 0) onAdded();
+        }}
+      />
 
       <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4">
         {TABS.map((t) => (
