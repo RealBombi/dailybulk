@@ -22,6 +22,10 @@ export type Settings = {
   calorieReminderTime: string; // "HH:MM" (24h)
   calorieReminderThreshold: number; // kcal
   onboardingCompleted: boolean;
+  // Body-goal targets — optional so existing users without them don't break
+  goalType?: "lose" | "maintain" | "lean_bulk" | "bulk_faster";
+  targetWeightKg?: number;
+  goalSpeedKgPerWeek?: number;
 };
 
 export type FoodEntry = {

@@ -109,3 +109,44 @@ export const ACTIVITY_LABELS: { id: Activity; label: string; sub: string }[] = [
   { id: "very", label: "Very active", sub: "hard training" },
   { id: "athlete", label: "Athlete", sub: "twice-a-day training" },
 ];
+
+export type SpeedOption = { value: number; label: string; sub: string };
+
+/** Weekly weight-change options per goal type. Empty for maintain. */
+export const SPEED_OPTIONS: Record<GoalType, SpeedOption[]> = {
+  lose: [
+    { value: -0.25, label: "Slow cut", sub: "−0.25 kg/wk" },
+    { value: -0.5, label: "Normal cut", sub: "−0.5 kg/wk" },
+    { value: -0.75, label: "Aggressive cut", sub: "−0.75 kg/wk" },
+  ],
+  maintain: [],
+  lean_bulk: [
+    { value: 0.25, label: "Slow gain", sub: "+0.25 kg/wk" },
+    { value: 0.5, label: "Moderate gain", sub: "+0.5 kg/wk" },
+  ],
+  bulk_faster: [
+    { value: 0.5, label: "Moderate gain", sub: "+0.5 kg/wk" },
+    { value: 0.75, label: "Faster gain", sub: "+0.75 kg/wk" },
+  ],
+};
+
+/** Default speed pick when the user first sees options for this goal. */
+export function defaultSpeed(goal: GoalType): number | undefined {
+  if (goal === "maintain") return 0;
+  if (goal === "lose") return -0.5;
+  if (goal === "lean_bulk") return 0.25;
+  if (goal === "bulk_faster") return 0.5;
+  return undefined;
+}
+
+/** Whole weeks (rounded up) to reach target at the given weekly change. */
+export function weeksToGoal(
+  currentKg: number,
+  targetKg: number,
+  speedPerWeek: number,
+): number | null {
+  if (!speedPerWeek) return null;
+  const diff = Math.abs(targetKg - currentKg);
+  if (diff === 0) return 0;
+  return Math.max(1, Math.ceil(diff / Math.abs(speedPerWeek)));
+}
