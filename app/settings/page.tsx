@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Bell, Download, Trash2, Upload } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Bell, Download, Sparkles, Trash2, Upload } from "lucide-react";
 import { useAppData, updateSettings, importData } from "@/lib/store";
 import { totalsForDate } from "@/lib/selectors";
 import { todayStr } from "@/lib/utils";
@@ -23,6 +24,7 @@ type Message = { tone: "ok" | "err"; text: string };
 export default function SettingsPage() {
   const data = useAppData();
   const { settings } = data;
+  const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState<Message | null>(null);
   const [perm, setPerm] = useState<PermissionState>("unsupported");
@@ -242,6 +244,13 @@ export default function SettingsPage() {
             ))}
           </div>
         </div>
+        <Button
+          variant="secondary"
+          onClick={() => router.push("/welcome")}
+          className="mt-1"
+        >
+          <Sparkles className="h-4 w-4" /> Restart setup / recalculate goals
+        </Button>
       </Card>
 
       <Card className="flex flex-col gap-3">

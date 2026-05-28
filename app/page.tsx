@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { useAppData, useHydrated } from "@/lib/store";
-import { entriesForDate, totalsForDate, creatineTakenOn } from "@/lib/selectors";
+import { totalsForDate, creatineTakenOn } from "@/lib/selectors";
 import { dailyStatus } from "@/lib/status";
 import { clampPercent, lighten, round, todayStr } from "@/lib/utils";
 import Loading from "./loading";
@@ -14,6 +16,7 @@ import { WeightCard } from "@/components/dashboard/weight-card";
 import { QuickActions } from "@/components/dashboard/quick-actions";
 import { WeeklySummary } from "@/components/dashboard/weekly-summary";
 import { HomeQuickAdd } from "@/components/dashboard/home-quick-add";
+import { TodayPlan } from "@/components/dashboard/today-plan";
 
 const toneStyles: Record<string, string> = {
   good: "border-emerald-500/30 bg-emerald-500/10 text-emerald-200",
@@ -24,10 +27,19 @@ const toneStyles: Record<string, string> = {
 export default function HomePage() {
   const data = useAppData();
   const hydrated = useHydrated();
+  const router = useRouter();
   const today = todayStr();
 
-  // Avoid flashing default goals before localStorage has loaded.
-  if (!hydrated) return <Loading />;
+  // Send first-time users to the welcome flow once we know their state.
+  useEffect(() => {
+    if (hydrated && !data.settings.onboardingCompleted) {
+      router.replace("/welcome");
+    }
+  }, [hydrated, data.settings.onboardingCompleted, router]);
+
+  // Avoid flashing default goals before localStorage has loaded (or while
+  // redirecting a brand-new user to onboarding).
+  if (!hydrated || !data.settings.onboardingCompleted) return <Loading />;
   const totals = totalsForDate(data, today);
   const { settings } = data;
 
@@ -126,6 +138,7 @@ export default function HomePage() {
         {status.message}
       </motion.div>
 
+      <TodayPlan />
       <QuickActions />
       <HomeQuickAdd />
       <CreatineCard />
