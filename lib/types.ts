@@ -21,6 +21,7 @@ export type Settings = {
   calorieReminderEnabled: boolean;
   calorieReminderTime: string; // "HH:MM" (24h)
   calorieReminderThreshold: number; // kcal
+  onboardingCompleted: boolean;
 };
 
 export type FoodEntry = {

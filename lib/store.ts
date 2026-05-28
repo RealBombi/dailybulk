@@ -36,6 +36,7 @@ const defaultSettings: Settings = {
   calorieReminderEnabled: false,
   calorieReminderTime: "21:00",
   calorieReminderThreshold: 700,
+  onboardingCompleted: false,
 };
 
 const defaultData: AppData = {
@@ -72,7 +73,16 @@ function load(): void {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (raw) {
-      data = coerce(JSON.parse(raw) as Partial<AppData>);
+      const parsed = JSON.parse(raw) as Partial<AppData>;
+      data = coerce(parsed);
+      // Migration: people already using the app shouldn't suddenly see the
+      // welcome flow. If their backup predates onboarding, mark it done.
+      if (parsed.settings && (parsed.settings as Settings).onboardingCompleted === undefined) {
+        data = {
+          ...data,
+          settings: { ...data.settings, onboardingCompleted: true },
+        };
+      }
     }
   } catch {
     // Corrupt storage — fall back to defaults rather than crash.
