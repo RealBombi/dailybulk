@@ -16,6 +16,7 @@ const items = [
 
 export function BottomNav() {
   const pathname = usePathname();
+  if (pathname?.startsWith("/welcome")) return null;
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-50 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
