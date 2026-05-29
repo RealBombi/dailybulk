@@ -398,6 +398,7 @@ function CalcStep({
       weightKg: weightN,
       activity,
       trainingDays,
+      speedKgPerWeek: speedN,
     };
     const bg: BodyGoal = {
       goalType: goal,
@@ -522,6 +523,10 @@ function ResultStep({
   const speedLabel = maintain
     ? `Maintain around ${bodyGoal.targetKg} kg`
     : `${bodyGoal.speed > 0 ? "+" : ""}${bodyGoal.speed} kg/week`;
+  const adj = result.dailyAdjustmentKcal;
+  const adjLabel = maintain
+    ? "—"
+    : `${adj > 0 ? "+" : ""}${adj} kcal`;
   const timelineLabel =
     maintain
       ? "—"
@@ -540,8 +545,10 @@ function ResultStep({
             value={`${result.maintenanceKcal} kcal`}
             muted
           />
+          <ResultRow label="Goal speed" value={speedLabel} muted />
+          <ResultRow label="Daily adjustment" value={adjLabel} muted />
           <ResultRow
-            label="Calorie goal"
+            label="Recommended target"
             value={`${result.calorieGoal} kcal`}
             big
           />
@@ -558,13 +565,12 @@ function ResultStep({
             label="Target weight"
             value={`${bodyGoal.targetKg} kg`}
           />
-          <ResultRow label="Planned change" value={speedLabel} />
           <ResultRow label="Estimated time" value={timelineLabel} />
         </div>
 
         <p className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-xs text-white/50">
-          This is only an estimate. Adjust based on your real weight trend over
-          2–3 weeks.
+          This is an estimate. Track your weight trend for 2–3 weeks and adjust
+          if needed. You can edit the calorie goal anytime in Settings.
         </p>
       </div>
 

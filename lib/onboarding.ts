@@ -21,11 +21,17 @@ export type CalculatorInputs = {
   weightKg: number;
   activity: Activity;
   trainingDays: number;
+  /** Optional weekly speed in kg/week. If provided it drives the calorie
+   *  adjustment via the 7700 kcal/kg rule; otherwise the fixed goal delta
+   *  fallback is used (e.g. for the manual flow). */
+  speedKgPerWeek?: number;
 };
 
 export type CalculatorResult = {
   bmr: number;
   maintenanceKcal: number;
+  /** Signed daily kcal adjustment actually applied (post-cap). */
+  dailyAdjustmentKcal: number;
   calorieGoal: number;
   proteinGoal: number;
   creatineGoalGrams: number;
@@ -59,8 +65,21 @@ const MIN_KCAL: Record<Sex, number> = {
   neutral: 1400,
 };
 
+/** Rough rule of thumb: ~7700 kcal per kg of body mass. */
+export const KCAL_PER_KG = 7700;
+/** Safety cap on positive (gaining) daily adjustment to keep estimates sane. */
+export const MAX_DAILY_SURPLUS = 700;
+
 const round50 = (n: number) => Math.max(0, Math.round(n / 50) * 50);
 const round5 = (n: number) => Math.max(0, Math.round(n / 5) * 5);
+
+/** Signed daily kcal change from a weekly weight-change target. Surplus is
+ *  capped at +MAX_DAILY_SURPLUS; deficit isn't capped here (the per-sex
+ *  minimum kcal floor handles aggressive cuts). */
+export function dailyAdjustmentKcal(speedKgPerWeek: number): number {
+  const raw = (speedKgPerWeek * KCAL_PER_KG) / 7;
+  return Math.round(raw > MAX_DAILY_SURPLUS ? MAX_DAILY_SURPLUS : raw);
+}
 
 export function calcBmr(
   sex: Sex,
@@ -77,12 +96,21 @@ export function calcBmr(
 export function calculate(inputs: CalculatorInputs): CalculatorResult {
   const bmr = calcBmr(inputs.sex, inputs.weightKg, inputs.heightCm, inputs.age);
   const maintenance = bmr * ACTIVITY[inputs.activity];
-  const adjusted = maintenance + GOAL_DELTA[inputs.goal];
+
+  // Prefer the user's selected weekly speed (7700 kcal/kg), fall back to the
+  // fixed per-goal delta when no speed was picked (e.g. manual setup flow).
+  const dailyAdj =
+    inputs.speedKgPerWeek !== undefined
+      ? dailyAdjustmentKcal(inputs.speedKgPerWeek)
+      : GOAL_DELTA[inputs.goal];
+
+  const adjusted = maintenance + dailyAdj;
   const calorieGoal = Math.max(round50(adjusted), MIN_KCAL[inputs.sex]);
   const proteinGoal = round5(PROTEIN_G_PER_KG[inputs.goal] * inputs.weightKg);
   return {
     bmr: Math.round(bmr),
     maintenanceKcal: round50(maintenance),
+    dailyAdjustmentKcal: dailyAdj,
     calorieGoal,
     proteinGoal,
     creatineGoalGrams: 5,
