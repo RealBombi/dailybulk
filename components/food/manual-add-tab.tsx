@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 
 const schema = z.object({
   name: z.string().min(1, "Name is required"),
-  calories: z.number().nonnegative(),
+  calories: z.number().positive("Enter calories greater than 0"),
   protein: z.number().nonnegative().optional(),
   carbs: z.number().nonnegative().optional(),
   fat: z.number().nonnegative().optional(),

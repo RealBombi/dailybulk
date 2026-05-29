@@ -122,7 +122,13 @@ export default function WeightPage() {
           </div>
         </div>
         {chartData.length < 2 ? (
-          <EmptyState message="Log your first weight to start seeing your trend." />
+          <EmptyState
+            message={
+              series.length === 0
+                ? "Log your first weight to start seeing your trend."
+                : "Log another weight to see your trend."
+            }
+          />
         ) : (
           <div className="h-48">
             <ResponsiveContainer width="100%" height="100%">
