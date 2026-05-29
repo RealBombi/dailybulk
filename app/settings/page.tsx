@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Bell, Download, Sparkles, Trash2, Upload } from "lucide-react";
 import { useAppData, updateSettings, importData, STORAGE_KEY } from "@/lib/store";
-import { totalsForDate, latestWeight } from "@/lib/selectors";
-import { todayStr } from "@/lib/utils";
+import { totalsForDate, latestWeightKg } from "@/lib/selectors";
+import { formatWeight, todayStr } from "@/lib/utils";
 import type { WeightUnit } from "@/lib/types";
 import {
   notificationPermission,
@@ -302,9 +302,10 @@ function BodyGoalSettings({
 }) {
   const data = useAppData();
   const { settings } = data;
-  const latest = latestWeight(data);
-  const target = settings.targetWeightKg;
-  const speed = settings.goalSpeedKgPerWeek;
+  const unit = settings.weightUnit;
+  const currentKg = latestWeightKg(data);
+  const targetKg = settings.targetWeightKg;
+  const speedKg = settings.goalSpeedKgPerWeek;
   const goalLabel =
     settings.goalType === "lose"
       ? "Lose weight"
@@ -315,15 +316,14 @@ function BodyGoalSettings({
           : settings.goalType === "bulk_faster"
             ? "Gain faster"
             : "—";
-  const speedLabel =
-    !speed
-      ? "Maintain"
-      : `${speed > 0 ? "+" : ""}${speed} ${settings.weightUnit}/week`;
+  const speedLabel = !speedKg
+    ? "Maintain"
+    : `${speedKg > 0 ? "+" : "−"}${formatWeight(Math.abs(speedKg), unit, 1)}/week`;
 
   return (
     <Card className="flex flex-col gap-4">
       <CardTitle>Body goal</CardTitle>
-      {target === undefined ? (
+      {targetKg === undefined ? (
         <p className="text-xs text-white/45">
           No body goal yet. Run the setup to choose a target weight and weekly
           speed.
@@ -333,19 +333,15 @@ function BodyGoalSettings({
           <Row label="Goal" value={goalLabel} />
           <Row
             label="Current weight"
-            value={
-              latest
-                ? `${latest.weight} ${settings.weightUnit}`
-                : "—"
-            }
+            value={currentKg !== undefined ? formatWeight(currentKg, unit) : "—"}
           />
-          <Row label="Target weight" value={`${target} ${settings.weightUnit}`} />
+          <Row label="Target weight" value={formatWeight(targetKg, unit)} />
           <Row label="Weekly speed" value={speedLabel} />
         </div>
       )}
       <Button variant="secondary" onClick={() => router.push("/welcome")}>
         <Sparkles className="h-4 w-4" />
-        {target === undefined ? "Set up body goal" : "Restart setup / recalculate goals"}
+        {targetKg === undefined ? "Set up body goal" : "Restart setup / recalculate goals"}
       </Button>
     </Card>
   );

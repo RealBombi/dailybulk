@@ -3,19 +3,30 @@
 import { useState } from "react";
 import { Scale, TrendingDown, TrendingUp, Minus } from "lucide-react";
 import { useAppData, logWeight } from "@/lib/store";
-import { latestWeight, weightTrend } from "@/lib/selectors";
-import { todayStr } from "@/lib/utils";
+import { latestWeightKg, weightTrend } from "@/lib/selectors";
+import {
+  formatWeight,
+  kgToLb,
+  todayStr,
+  unitLabel,
+} from "@/lib/utils";
 import { Sheet } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 
 export function WeightCard() {
   const data = useAppData();
-  const latest = latestWeight(data);
+  const latestKg = latestWeightKg(data);
   const trend = weightTrend(data);
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState("");
 
   const unit = data.settings.weightUnit;
+  const latestInUnit =
+    latestKg !== undefined
+      ? unit === "lbs"
+        ? kgToLb(latestKg)
+        : latestKg
+      : undefined;
 
   const save = () => {
     const w = Number(value);
@@ -32,7 +43,11 @@ export function WeightCard() {
     <>
       <button
         onClick={() => {
-          setValue(latest ? String(latest.weight) : "");
+          setValue(
+            latestInUnit !== undefined
+              ? String(parseFloat(latestInUnit.toFixed(1)))
+              : "",
+          );
           setOpen(true);
         }}
         className="glass tap flex w-full items-center gap-4 p-5 text-left"
@@ -44,19 +59,13 @@ export function WeightCard() {
           <p className="text-xs uppercase tracking-wider text-white/50">
             Weight
           </p>
-          {latest ? (
-            <p className="text-lg font-bold">
-              {latest.weight}
-              <span className="text-sm font-normal text-white/50">
-                {" "}
-                {latest.unit}
-              </span>
-            </p>
+          {latestKg !== undefined ? (
+            <p className="text-lg font-bold">{formatWeight(latestKg, unit)}</p>
           ) : (
             <p className="text-lg font-bold">Log today&apos;s weight</p>
           )}
           <p className="text-sm text-white/50">
-            {latest ? "Tap to update" : "Start your trend"}
+            {latestKg !== undefined ? "Tap to update" : "Start your trend"}
           </p>
         </div>
         {trend && (
@@ -84,7 +93,7 @@ export function WeightCard() {
               placeholder="0"
               className="w-40 rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-center text-4xl font-bold outline-none focus:border-accent/60"
             />
-            <span className="pb-4 text-xl text-white/50">{unit}</span>
+            <span className="pb-4 text-xl text-white/50">{unitLabel(unit)}</span>
           </div>
           <Button size="lg" onClick={save}>
             Save weight

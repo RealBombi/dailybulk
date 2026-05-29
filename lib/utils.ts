@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import type { WeightUnit } from "./types";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -65,6 +66,53 @@ export function round(n: number, digits = 0): number {
 export function clampPercent(value: number, goal: number): number {
   if (!goal || goal <= 0) return 0;
   return Math.min(Math.round((value / goal) * 100), 100);
+}
+
+// ---------------------------------------------------------------------------
+// Weight unit helpers — kg is the canonical internal unit. Always normalize
+// to kg before doing math, then format in the user's display unit at the UI.
+// ---------------------------------------------------------------------------
+
+const KG_PER_LB = 0.45359237;
+
+export function kgToLb(kg: number): number {
+  return kg / KG_PER_LB;
+}
+export function lbToKg(lb: number): number {
+  return lb * KG_PER_LB;
+}
+
+/** A weight log's value (with its own per-entry unit) -> kg. Missing/unknown
+ *  unit is treated as kg (the historical default before lbs was supported). */
+export function normalizeWeightToKg(
+  value: number,
+  unit: WeightUnit | string | undefined,
+): number {
+  return unit === "lbs" ? lbToKg(value) : value;
+}
+
+/** Short label shown next to a weight number ("kg" / "lb"). */
+export function unitLabel(unit: WeightUnit): "kg" | "lb" {
+  return unit === "lbs" ? "lb" : "kg";
+}
+
+/**
+ * Format a kg value in the user's display unit. Default precision: 1 decimal
+ * for kg; for lb, 1 decimal under 10 lb (speeds/deltas) and whole numbers at
+ * larger values (body weights) — strips trailing zeros so "72.0 kg" -> "72 kg".
+ */
+export function formatWeight(
+  valueKg: number,
+  displayUnit: WeightUnit,
+  decimals?: number,
+): string {
+  if (displayUnit === "lbs") {
+    const lb = kgToLb(valueKg);
+    const dec = decimals ?? (Math.abs(lb) < 10 ? 1 : 0);
+    return `${parseFloat(round(lb, dec).toFixed(dec))} lb`;
+  }
+  const dec = decimals ?? 1;
+  return `${parseFloat(round(valueKg, dec).toFixed(dec))} kg`;
 }
 
 export function hexToRgb(hex: string): { r: number; g: number; b: number } {

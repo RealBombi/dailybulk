@@ -9,6 +9,8 @@ import {
 } from "@/lib/selectors";
 import {
   currentWeekDates,
+  formatWeight,
+  normalizeWeightToKg,
   parseDateStr,
   round,
   todayStr,
@@ -89,22 +91,28 @@ export function WeeklySummary() {
     ? round(per.reduce((s, p) => s + p.protein, 0) / loggedDays)
     : 0;
 
-  // Weight trend: weights logged within this week
+  // Weight trend: weights logged within this week. Normalise each log to kg
+  // before subtracting so mixed kg/lbs entries compare correctly.
   const weekWeights = data.weightLogs
     .filter((w) => days.includes(w.date))
     .sort((a, b) => a.date.localeCompare(b.date));
   let weightTrend: {
     kind: "up" | "down" | "stable";
-    delta: number;
+    deltaKg: number;
   } | null = null;
   if (weekWeights.length >= 2) {
-    const delta = round(
-      weekWeights[weekWeights.length - 1].weight - weekWeights[0].weight,
-      1,
+    const firstKg = normalizeWeightToKg(
+      weekWeights[0].weight,
+      weekWeights[0].unit,
     );
+    const lastKg = normalizeWeightToKg(
+      weekWeights[weekWeights.length - 1].weight,
+      weekWeights[weekWeights.length - 1].unit,
+    );
+    const deltaKg = round(lastKg - firstKg, 2);
     const kind =
-      Math.abs(delta) < 0.3 ? "stable" : delta > 0 ? "up" : "down";
-    weightTrend = { kind, delta };
+      Math.abs(deltaKg) < 0.3 ? "stable" : deltaKg > 0 ? "up" : "down";
+    weightTrend = { kind, deltaKg };
   }
 
   return (
@@ -156,8 +164,8 @@ export function WeeklySummary() {
               <Minus className="h-4 w-4 text-white/40" />
             )}
             <span>
-              {weightTrend.delta > 0 ? "+" : ""}
-              {weightTrend.delta} {settings.weightUnit} this week
+              {weightTrend.deltaKg > 0 ? "+" : "−"}
+              {formatWeight(Math.abs(weightTrend.deltaKg), settings.weightUnit, 1)} this week
             </span>
           </span>
         ) : (

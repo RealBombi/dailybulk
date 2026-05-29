@@ -1,5 +1,5 @@
 import type { AppData, FoodEntry, WeightLog } from "./types";
-import { addDays, round, todayStr } from "./utils";
+import { addDays, normalizeWeightToKg, round, todayStr } from "./utils";
 
 export type DayTotals = {
   calories: number;
@@ -62,17 +62,27 @@ export function latestWeight(data: AppData): WeightLog | undefined {
   return [...data.weightLogs].sort((a, b) => b.date.localeCompare(a.date))[0];
 }
 
+/** Latest weight normalised to kg (or undefined if none). */
+export function latestWeightKg(data: AppData): number | undefined {
+  const l = latestWeight(data);
+  return l ? normalizeWeightToKg(l.weight, l.unit) : undefined;
+}
+
 export function weightSeries(data: AppData): WeightLog[] {
   return [...data.weightLogs].sort((a, b) => a.date.localeCompare(b.date));
 }
 
-export function weeklyAverageWeight(data: AppData): number | undefined {
+/** Last 7 days' average weight, in kg (normalised from each log's own unit). */
+export function weeklyAverageWeightKg(data: AppData): number | undefined {
   const recent = weightSeries(data).filter((l) =>
     lastNDays(7).includes(l.date),
   );
   if (recent.length === 0) return undefined;
-  const sum = recent.reduce((a, l) => a + l.weight, 0);
-  return round(sum / recent.length, 1);
+  const sum = recent.reduce(
+    (a, l) => a + normalizeWeightToKg(l.weight, l.unit),
+    0,
+  );
+  return round(sum / recent.length, 2);
 }
 
 export type Trend = "up" | "down" | "stable";
@@ -80,8 +90,11 @@ export type Trend = "up" | "down" | "stable";
 export function weightTrend(data: AppData): Trend | undefined {
   const series = weightSeries(data);
   if (series.length < 2) return undefined;
-  const first = series[0].weight;
-  const last = series[series.length - 1].weight;
+  const first = normalizeWeightToKg(series[0].weight, series[0].unit);
+  const last = normalizeWeightToKg(
+    series[series.length - 1].weight,
+    series[series.length - 1].unit,
+  );
   const diff = last - first;
   if (Math.abs(diff) < 0.3) return "stable";
   return diff > 0 ? "up" : "down";

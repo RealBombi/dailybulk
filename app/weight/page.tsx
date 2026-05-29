@@ -16,12 +16,20 @@ import {
   deleteWeightLog,
 } from "@/lib/store";
 import {
-  latestWeight,
-  weeklyAverageWeight,
+  latestWeightKg,
+  weeklyAverageWeightKg,
   weightSeries,
   weightTrend,
 } from "@/lib/selectors";
-import { parseDateStr, todayStr } from "@/lib/utils";
+import {
+  formatWeight,
+  kgToLb,
+  normalizeWeightToKg,
+  parseDateStr,
+  round,
+  todayStr,
+  unitLabel,
+} from "@/lib/utils";
 import { PageHeader, PageShell, EmptyState } from "@/components/page-shell";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -30,10 +38,11 @@ import { Sheet } from "@/components/ui/sheet";
 export default function WeightPage() {
   const data = useAppData();
   const series = weightSeries(data);
-  const latest = latestWeight(data);
-  const avg = weeklyAverageWeight(data);
+  const latestKg = latestWeightKg(data);
+  const avgKg = weeklyAverageWeightKg(data);
   const trend = weightTrend(data);
   const unit = data.settings.weightUnit;
+  const toDisplay = (kg: number) => (unit === "lbs" ? kgToLb(kg) : kg);
 
   const [range, setRange] = useState<7 | 30>(30);
   const [open, setOpen] = useState(false);
@@ -49,6 +58,8 @@ export default function WeightPage() {
 
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - range);
+  // Convert every chart point to kg first, then to the user's display unit,
+  // so mixed kg/lbs logs plot consistently on one axis.
   const chartData = series
     .filter((l) => parseDateStr(l.date) >= cutoff)
     .map((l) => ({
@@ -56,7 +67,7 @@ export default function WeightPage() {
         month: "short",
         day: "numeric",
       }),
-      weight: l.weight,
+      weight: round(toDisplay(normalizeWeightToKg(l.weight, l.unit)), 1),
     }));
 
   const TrendIcon =
@@ -77,13 +88,11 @@ export default function WeightPage() {
       <div className="grid grid-cols-3 gap-3">
         <Stat
           label="Latest"
-          value={latest ? `${latest.weight}` : "–"}
-          unit={latest ? unit : ""}
+          value={latestKg !== undefined ? formatWeight(latestKg, unit) : "–"}
         />
         <Stat
           label="7-day avg"
-          value={avg !== undefined ? `${avg}` : "–"}
-          unit={avg !== undefined ? unit : ""}
+          value={avgKg !== undefined ? formatWeight(avgKg, unit) : "–"}
         />
         <Card className="flex flex-col justify-center">
           <p className="text-xs uppercase tracking-wider text-white/50">
@@ -194,7 +203,10 @@ export default function WeightPage() {
                 </span>
                 <div className="flex items-center gap-3">
                   <span className="text-sm font-semibold">
-                    {l.weight} {l.unit}
+                    {formatWeight(
+                      normalizeWeightToKg(l.weight, l.unit),
+                      unit,
+                    )}
                   </span>
                   <button
                     onClick={() => deleteWeightLog(l.id)}
@@ -222,7 +234,7 @@ export default function WeightPage() {
               placeholder="0"
               className="w-40 rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-center text-4xl font-bold outline-none focus:border-accent/60"
             />
-            <span className="pb-4 text-xl text-white/50">{unit}</span>
+            <span className="pb-4 text-xl text-white/50">{unitLabel(unit)}</span>
           </div>
           <Button size="lg" onClick={save}>
             Save weight
@@ -233,21 +245,22 @@ export default function WeightPage() {
   );
 }
 
-function Stat({
-  label,
-  value,
-  unit,
-}: {
-  label: string;
-  value: string;
-  unit: string;
-}) {
+function Stat({ label, value }: { label: string; value: string }) {
+  // Render "176 lb" / "80 kg" with a smaller unit suffix so it stays on one
+  // line in the narrow stat card.
+  const m = value.match(/^(.+?)\s+(kg|lb)$/);
   return (
     <Card>
       <p className="text-xs uppercase tracking-wider text-white/50">{label}</p>
-      <p className="mt-1 text-2xl font-bold">
-        {value}
-        <span className="text-sm font-normal text-white/50"> {unit}</span>
+      <p className="mt-1 text-2xl font-bold tabular-nums">
+        {m ? (
+          <>
+            {m[1]}
+            <span className="ml-1 text-sm font-normal text-white/50">{m[2]}</span>
+          </>
+        ) : (
+          value
+        )}
       </p>
     </Card>
   );
