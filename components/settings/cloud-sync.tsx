@@ -6,9 +6,9 @@ import {
   Check,
   Cloud,
   CloudOff,
-  LogIn,
   LogOut,
   RefreshCw,
+  ShieldCheck,
   UploadCloud,
   DownloadCloud,
 } from "lucide-react";
@@ -16,6 +16,7 @@ import {
   useSyncState,
   signIn,
   signUp,
+  signInWithGoogle,
   signOut,
   syncNow,
   uploadLocalToCloud,
@@ -26,6 +27,7 @@ import {
 } from "@/lib/sync";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Sheet } from "@/components/ui/sheet";
 
 const STATUS_LABEL: Record<SyncStatus, string> = {
   local: "Local only",
@@ -35,7 +37,15 @@ const STATUS_LABEL: Record<SyncStatus, string> = {
   offline: "Offline",
 };
 
-const STATUS_COLOR: Record<SyncStatus, string> = {
+const STATUS_DOT: Record<SyncStatus, string> = {
+  local: "bg-white/40",
+  syncing: "bg-amber-400 animate-pulse",
+  synced: "bg-emerald-400",
+  error: "bg-red-400",
+  offline: "bg-amber-400",
+};
+
+const STATUS_TEXT: Record<SyncStatus, string> = {
   local: "text-white/50",
   syncing: "text-amber-300",
   synced: "text-emerald-300",
@@ -68,7 +78,7 @@ export function CloudSyncCard() {
     return (
       <Card className="flex flex-col gap-3">
         <CardTitle>Cloud sync</CardTitle>
-        <p className="text-xs text-white/40">
+        <p className="text-xs leading-relaxed text-white/40">
           Your data is stored on this device. Cloud sync isn&apos;t set up for
           this build — use Export below to back up your data.
         </p>
@@ -80,7 +90,7 @@ export function CloudSyncCard() {
     <Card className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <CardTitle>Cloud sync</CardTitle>
-        <StatusPill sync={sync} />
+        {sync.email && <StatusBadge status={sync.status} />}
       </div>
 
       {sync.conflict && <ConflictPanel conflict={sync.conflict} />}
@@ -91,139 +101,165 @@ export function CloudSyncCard() {
         <SignedOut />
       )}
 
-      {sync.message && (
-        <p className="text-xs text-white/55">{sync.message}</p>
-      )}
+      {sync.message && <p className="text-xs text-white/55">{sync.message}</p>}
     </Card>
   );
 }
 
-function StatusPill({ sync }: { sync: ReturnType<typeof useSyncState> }) {
-  if (!sync.email) {
-    return <span className="text-xs text-white/40">Local only</span>;
-  }
+function StatusBadge({ status }: { status: SyncStatus }) {
   return (
-    <span className={`text-xs font-medium ${STATUS_COLOR[sync.status]}`}>
-      {STATUS_LABEL[sync.status]}
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full bg-white/5 px-2.5 py-1 text-[11px] font-medium ${STATUS_TEXT[status]}`}
+    >
+      <span className={`h-1.5 w-1.5 rounded-full ${STATUS_DOT[status]}`} />
+      {STATUS_LABEL[status]}
     </span>
   );
 }
 
+// ---------------------------------------------------------------------------
+// Signed-out
+// ---------------------------------------------------------------------------
+
 function SignedOut() {
   const [open, setOpen] = useState(false);
-  if (!open) {
-    return (
-      <>
-        <p className="text-xs text-white/45">
+  return (
+    <>
+      <div className="flex items-start gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/5">
+          <Cloud className="h-5 w-5 text-white/60" />
+        </div>
+        <p className="text-xs leading-relaxed text-white/50">
           Your data is stored on this device. Sign in to back it up and sync
-          across your devices. This is optional — the app works fully without
+          across your devices — completely optional, the app works fully without
           an account.
         </p>
-        <Button onClick={() => setOpen(true)}>
-          <LogIn className="h-4 w-4" /> Sign in / Create account
-        </Button>
-      </>
-    );
-  }
-  return <AuthForm onCancel={() => setOpen(false)} />;
+      </div>
+      <Button onClick={() => setOpen(true)}>Sign in / Create account</Button>
+
+      <Sheet open={open} onClose={() => setOpen(false)} title="Sync your data">
+        <AuthPanel onDone={() => setOpen(false)} />
+      </Sheet>
+    </>
+  );
 }
 
-function AuthForm({ onCancel }: { onCancel: () => void }) {
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+function AuthPanel({ onDone }: { onDone: () => void }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<null | "signin" | "signup" | "google">(null);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setBusy(true);
+  const run = async (mode: "signin" | "signup") => {
+    setBusy(mode);
     setError(null);
     setInfo(null);
     const fn = mode === "signin" ? signIn : signUp;
     const res = await fn(email.trim(), password);
-    setBusy(false);
+    setBusy(null);
     if (!res.ok) {
       setError(res.error ?? "Something went wrong.");
       return;
     }
     if (res.needsConfirmation) {
       setInfo("Check your email to confirm your account, then sign in.");
-      setMode("signin");
       setPassword("");
       return;
     }
-    // Signed in — the auth listener takes over from here.
-    onCancel();
+    onDone(); // signed in — the auth listener takes over
   };
 
+  const google = async () => {
+    setBusy("google");
+    setError(null);
+    setInfo(null);
+    const res = await signInWithGoogle();
+    if (!res.ok) {
+      setBusy(null);
+      setError(res.error ?? "Couldn't start Google sign-in.");
+    }
+    // On success the browser redirects to Google; leave the busy state on.
+  };
+
+  const disabled = busy !== null;
+
   return (
-    <form onSubmit={submit} className="flex flex-col gap-3">
-      <div className="flex gap-1 rounded-full bg-white/5 p-0.5">
-        {(["signin", "signup"] as const).map((m) => (
-          <button
-            key={m}
-            type="button"
-            onClick={() => {
-              setMode(m);
-              setError(null);
-              setInfo(null);
-            }}
-            className={`tap flex-1 rounded-full px-4 py-1.5 text-sm ${
-              mode === m ? "bg-white text-bg" : "text-white/50"
-            }`}
-          >
-            {m === "signin" ? "Sign in" : "Create account"}
-          </button>
-        ))}
-      </div>
+    <div className="flex flex-col gap-4">
+      <p className="text-sm leading-relaxed text-white/55">
+        Back up your data and sync across devices.
+      </p>
 
-      <input
-        type="email"
-        inputMode="email"
-        autoComplete="email"
-        required
-        placeholder="Email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm outline-none focus:border-accent/60"
-      />
-      <input
-        type="password"
-        autoComplete={mode === "signin" ? "current-password" : "new-password"}
-        required
-        minLength={6}
-        placeholder="Password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm outline-none focus:border-accent/60"
-      />
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          void run("signin");
+        }}
+        className="flex flex-col gap-3"
+      >
+        <Field
+          type="email"
+          placeholder="Email"
+          autoComplete="email"
+          value={email}
+          onChange={setEmail}
+          disabled={disabled}
+        />
+        <Field
+          type="password"
+          placeholder="Password"
+          autoComplete="current-password"
+          value={password}
+          onChange={setPassword}
+          disabled={disabled}
+          minLength={6}
+        />
 
-      {error && <p className="text-xs text-red-300">{error}</p>}
-      {info && <p className="text-xs text-emerald-300">{info}</p>}
+        {error && <p className="text-xs text-red-300">{error}</p>}
+        {info && <p className="text-xs text-emerald-300">{info}</p>}
 
-      <div className="flex gap-2">
+        <Button type="submit" disabled={disabled}>
+          {busy === "signin" ? "Signing in…" : "Sign in"}
+        </Button>
         <Button
           type="button"
-          variant="ghost"
-          className="flex-1"
-          onClick={onCancel}
-          disabled={busy}
+          variant="secondary"
+          disabled={disabled}
+          onClick={() => void run("signup")}
         >
-          Cancel
+          {busy === "signup" ? "Creating account…" : "Create account"}
         </Button>
-        <Button type="submit" className="flex-1" disabled={busy}>
-          {busy
-            ? "Please wait…"
-            : mode === "signin"
-              ? "Sign in"
-              : "Create account"}
-        </Button>
+      </form>
+
+      <div className="flex items-center gap-3 py-0.5">
+        <span className="h-px flex-1 bg-white/10" />
+        <span className="text-[11px] uppercase tracking-wider text-white/30">
+          or
+        </span>
+        <span className="h-px flex-1 bg-white/10" />
       </div>
-    </form>
+
+      <button
+        type="button"
+        onClick={() => void google()}
+        disabled={disabled}
+        className="tap inline-flex h-11 items-center justify-center gap-2.5 rounded-2xl bg-white px-4 text-sm font-semibold text-[#1f1f1f] disabled:opacity-50"
+      >
+        <GoogleIcon />
+        {busy === "google" ? "Redirecting…" : "Continue with Google"}
+      </button>
+
+      <p className="text-center text-[11px] leading-relaxed text-white/35">
+        Your data stays on this device too. Sign-in only adds a private,
+        encrypted-in-transit cloud backup.
+      </p>
+    </div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Signed-in
+// ---------------------------------------------------------------------------
 
 function SignedIn({
   email,
@@ -233,7 +269,11 @@ function SignedIn({
   sync: ReturnType<typeof useSyncState>;
 }) {
   const onReplace = async () => {
-    if (window.confirm(`${REPLACE_WARNING}\n\nReplace this device's data with the cloud copy? A local backup is kept automatically.`)) {
+    if (
+      window.confirm(
+        `${REPLACE_WARNING}\n\nReplace this device's data with the cloud copy? A local backup is kept automatically.`,
+      )
+    ) {
       await replaceLocalWithCloud();
     }
   };
@@ -248,42 +288,79 @@ function SignedIn({
   };
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-2 text-sm">
-        <Cloud className="h-4 w-4 text-white/50" />
-        <span className="truncate font-medium text-white">{email}</span>
-      </div>
-      <div className="flex items-center justify-between text-xs text-white/50">
-        <span>Last synced</span>
-        <span className="tabular-nums">{relativeTime(sync.lastSyncedAt)}</span>
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center gap-3 rounded-2xl bg-white/[0.04] p-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/15">
+          <ShieldCheck className="h-5 w-5 text-accent" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold text-white">{email}</p>
+          <p className="text-xs text-white/45">
+            Last synced {relativeTime(sync.lastSyncedAt)}
+          </p>
+        </div>
       </div>
 
-      <Button
-        variant="secondary"
-        onClick={() => void syncNow()}
-        disabled={sync.status === "syncing"}
+      <div className="flex flex-col gap-1.5">
+        <Button
+          onClick={() => void syncNow()}
+          disabled={sync.status === "syncing"}
+        >
+          <RefreshCw
+            className={`h-4 w-4 ${sync.status === "syncing" ? "animate-spin" : ""}`}
+          />
+          Sync now
+        </Button>
+        <p className="px-1 text-[11px] text-white/35">
+          Push the latest changes from this device to the cloud.
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-2 rounded-2xl border border-white/5 bg-white/[0.02] p-3">
+        <p className="text-[11px] font-medium uppercase tracking-wider text-white/35">
+          Advanced
+        </p>
+        <div className="flex flex-col gap-1">
+          <button
+            onClick={onUpload}
+            className="tap flex items-center gap-2.5 rounded-xl px-2 py-2 text-left text-sm text-white/75 hover:bg-white/5"
+          >
+            <UploadCloud className="h-4 w-4 shrink-0 text-white/45" />
+            <span className="flex-1">
+              Upload
+              <span className="block text-[11px] text-white/35">
+                Overwrite the cloud with this device&apos;s data.
+              </span>
+            </span>
+          </button>
+          <button
+            onClick={onReplace}
+            className="tap flex items-center gap-2.5 rounded-xl px-2 py-2 text-left text-sm text-white/75 hover:bg-white/5"
+          >
+            <DownloadCloud className="h-4 w-4 shrink-0 text-white/45" />
+            <span className="flex-1">
+              Restore
+              <span className="block text-[11px] text-white/35">
+                Replace this device with the cloud copy.
+              </span>
+            </span>
+          </button>
+        </div>
+      </div>
+
+      <button
+        onClick={() => void signOut()}
+        className="tap inline-flex items-center justify-center gap-2 py-1 text-sm text-white/45 hover:text-white/70"
       >
-        <RefreshCw
-          className={`h-4 w-4 ${sync.status === "syncing" ? "animate-spin" : ""}`}
-        />
-        Sync now
-      </Button>
-
-      <div className="flex gap-2">
-        <Button variant="secondary" className="flex-1" onClick={onUpload}>
-          <UploadCloud className="h-4 w-4" /> Upload
-        </Button>
-        <Button variant="secondary" className="flex-1" onClick={onReplace}>
-          <DownloadCloud className="h-4 w-4" /> Restore
-        </Button>
-      </div>
-
-      <Button variant="ghost" onClick={() => void signOut()}>
         <LogOut className="h-4 w-4" /> Sign out
-      </Button>
+      </button>
     </div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Conflict
+// ---------------------------------------------------------------------------
 
 function ConflictPanel({
   conflict,
@@ -294,7 +371,9 @@ function ConflictPanel({
   const choose = async (choice: "keepLocal" | "useCloud") => {
     if (
       choice === "useCloud" &&
-      !window.confirm(`${REPLACE_WARNING}\n\nUse the cloud copy and replace this device's data? A local backup is kept automatically.`)
+      !window.confirm(
+        `${REPLACE_WARNING}\n\nUse the cloud copy and replace this device's data? A local backup is kept automatically.`,
+      )
     ) {
       return;
     }
@@ -309,7 +388,7 @@ function ConflictPanel({
         <AlertTriangle className="h-4 w-4" />
         <span className="text-sm font-semibold">Sync conflict</span>
       </div>
-      <p className="text-xs text-white/70">
+      <p className="text-xs leading-relaxed text-white/70">
         Both this device and the cloud have data. Choose which to keep — the
         other copy will be overwritten. Your current device data is backed up
         either way.
@@ -351,5 +430,65 @@ function SummaryBox({ title, s }: { title: string; s: DataSummary }) {
         <li>{s.creatine} creatine logs</li>
       </ul>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Shared bits
+// ---------------------------------------------------------------------------
+
+function Field({
+  type,
+  placeholder,
+  autoComplete,
+  value,
+  onChange,
+  disabled,
+  minLength,
+}: {
+  type: string;
+  placeholder: string;
+  autoComplete: string;
+  value: string;
+  onChange: (v: string) => void;
+  disabled: boolean;
+  minLength?: number;
+}) {
+  return (
+    <input
+      type={type}
+      inputMode={type === "email" ? "email" : undefined}
+      placeholder={placeholder}
+      autoComplete={autoComplete}
+      required
+      minLength={minLength}
+      value={value}
+      disabled={disabled}
+      onChange={(e) => onChange(e.target.value)}
+      className="h-12 rounded-2xl border border-white/10 bg-white/5 px-4 text-sm outline-none transition-colors focus:border-accent/60 disabled:opacity-50"
+    />
+  );
+}
+
+function GoogleIcon() {
+  return (
+    <svg className="h-4 w-4" viewBox="0 0 48 48" aria-hidden="true">
+      <path
+        fill="#EA4335"
+        d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
+      />
+      <path
+        fill="#4285F4"
+        d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"
+      />
+      <path
+        fill="#34A853"
+        d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
+      />
+    </svg>
   );
 }

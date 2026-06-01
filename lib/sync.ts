@@ -434,6 +434,28 @@ export async function signIn(
   return { ok: true };
 }
 
+/**
+ * Start the Google OAuth flow. This redirects the browser to Google and back
+ * to /settings, where the restored session triggers reconcile() on load. Uses
+ * the live origin so it works on localhost, Vercel previews and production
+ * without hardcoding a domain.
+ */
+export async function signInWithGoogle(): Promise<AuthResult> {
+  const sb = getSupabase();
+  if (!sb) return { ok: false, error: "Cloud sync is not configured." };
+  const redirectTo =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/settings`
+      : undefined;
+  const { error } = await sb.auth.signInWithOAuth({
+    provider: "google",
+    options: { redirectTo },
+  });
+  if (error) return { ok: false, error: error.message };
+  // On success the browser navigates away to Google; nothing more to do here.
+  return { ok: true };
+}
+
 export async function signOut(): Promise<void> {
   const sb = getSupabase();
   if (!sb) return;

@@ -38,7 +38,9 @@ export function getSupabase(): SupabaseClient | null {
       auth: {
         persistSession: true,
         autoRefreshToken: true,
-        detectSessionInUrl: false,
+        // Needed so the Google OAuth redirect back to /settings is parsed and
+        // the session established. Harmless for email/password sign-in.
+        detectSessionInUrl: true,
         storageKey: "dailyfuel:auth",
       },
     });
