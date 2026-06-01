@@ -449,9 +449,14 @@ export async function signInWithGoogle(): Promise<AuthResult> {
       : undefined;
   const { error } = await sb.auth.signInWithOAuth({
     provider: "google",
-    options: { redirectTo },
+    options: {
+      redirectTo,
+      // Let the user pick which Google account to use instead of silently
+      // reusing a previous one.
+      queryParams: { prompt: "select_account" },
+    },
   });
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: friendlyOAuthError(error.message) };
   // On success the browser navigates away to Google; nothing more to do here.
   return { ok: true };
 }
@@ -506,6 +511,86 @@ export function dismissMessage(): void {
 }
 
 // ---------------------------------------------------------------------------
+// OAuth redirect handling
+// ---------------------------------------------------------------------------
+
+/** Turn raw Supabase/OAuth error text into something a user can act on. */
+function friendlyOAuthError(raw: string): string {
+  const d = raw.toLowerCase();
+  if (d.includes("provider is not enabled") || d.includes("unsupported provider")) {
+    return "Google sign-in isn't enabled for this app yet. You can still sign in with email and password.";
+  }
+  if (d.includes("redirect")) {
+    return "That sign-in link wasn't allowed. Add this site's /settings URL to Supabase's redirect allow-list, or use email and password.";
+  }
+  return raw || "Google sign-in failed. Please try again.";
+}
+
+const AUTH_URL_PARAMS = [
+  "code",
+  "state",
+  "error",
+  "error_code",
+  "error_description",
+  "provider_token",
+  "provider_refresh_token",
+  "access_token",
+  "refresh_token",
+  "expires_in",
+  "expires_at",
+  "token_type",
+];
+
+/** Strip OAuth params from the address bar so a refresh doesn't re-process
+ *  them and the URL stays clean. Safe to call repeatedly. */
+function cleanAuthParamsFromUrl(): void {
+  if (typeof window === "undefined" || !window.history?.replaceState) return;
+  const url = new URL(window.location.href);
+  let changed = false;
+  for (const k of AUTH_URL_PARAMS) {
+    if (url.searchParams.has(k)) {
+      url.searchParams.delete(k);
+      changed = true;
+    }
+  }
+  if (url.hash && url.hash.length > 1) {
+    const h = new URLSearchParams(url.hash.replace(/^#/, ""));
+    let hChanged = false;
+    for (const k of AUTH_URL_PARAMS) {
+      if (h.has(k)) {
+        h.delete(k);
+        hChanged = true;
+      }
+    }
+    if (hChanged) {
+      const s = h.toString();
+      url.hash = s ? `#${s}` : "";
+      changed = true;
+    }
+  }
+  if (changed) window.history.replaceState({}, "", url.toString());
+}
+
+/** Read an OAuth error returned in the redirect (query or hash) and surface a
+ *  clean message. Errors carry no session, so we strip them right away. */
+function handleOAuthError(): void {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  const hash = new URLSearchParams(
+    url.hash.startsWith("#") ? url.hash.slice(1) : "",
+  );
+  const raw =
+    url.searchParams.get("error_description") ||
+    url.searchParams.get("error") ||
+    hash.get("error_description") ||
+    hash.get("error");
+  if (!raw) return;
+  const decoded = decodeURIComponent(raw.replace(/\+/g, " "));
+  setState({ status: "local", message: friendlyOAuthError(decoded) });
+  cleanAuthParamsFromUrl();
+}
+
+// ---------------------------------------------------------------------------
 // Initialization (called once from a client component on mount)
 // ---------------------------------------------------------------------------
 
@@ -523,6 +608,9 @@ export function initSync(): void {
   const sb = getSupabase();
   if (!sb) return; // not configured — stay fully local
 
+  // Surface any OAuth error returned in the redirect (e.g. provider disabled).
+  handleOAuthError();
+
   // React to local data changes → debounced auto-sync.
   subscribeData(scheduleAutoSync);
 
@@ -534,13 +622,17 @@ export function initSync(): void {
     if (state.email) setState({ status: "offline" });
   });
 
-  // Restore an existing session and reconcile.
+  // Restore an existing session (incl. one just established from an OAuth
+  // redirect via detectSessionInUrl) and reconcile. getSession() resolves
+  // after the client has processed any code in the URL, so it's safe to tidy
+  // the address bar afterwards.
   void sb.auth.getSession().then(({ data }) => {
     const session = data.session;
     if (session?.user) {
       setState({ email: session.user.email ?? null });
       void reconcile();
     }
+    cleanAuthParamsFromUrl();
   });
 
   // Handle sign-in / sign-out happening after load.
@@ -551,6 +643,7 @@ export function initSync(): void {
         setState({ email: session.user.email ?? null });
         void reconcile();
       }
+      cleanAuthParamsFromUrl();
     } else if (event === "SIGNED_OUT") {
       setState({ email: null, status: "local", conflict: null });
     }
