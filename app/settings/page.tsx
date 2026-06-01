@@ -293,7 +293,7 @@ export default function SettingsPage() {
         </Button>
       </Card>
 
-      <p className="pb-2 text-center text-xs text-white/25">DailyFuel · v0.2.0</p>
+      <p className="pb-2 text-center text-xs text-white/25">DailyFuel · v0.2.1</p>
     </PageShell>
   );
 }
