@@ -16,6 +16,7 @@ import {
 import { PageHeader, PageShell } from "@/components/page-shell";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { CloudSyncCard } from "@/components/settings/cloud-sync";
 
 const ACCENTS = ["#6366f1", "#22d3ee", "#34d399", "#f472b6", "#fbbf24"];
 
@@ -248,6 +249,8 @@ export default function SettingsPage() {
         </div>
       </Card>
 
+      <CloudSyncCard />
+
       <Card className="flex flex-col gap-3">
         <CardTitle>Data</CardTitle>
         <p className="text-xs text-white/40">
@@ -290,7 +293,7 @@ export default function SettingsPage() {
         </Button>
       </Card>
 
-      <p className="pb-2 text-center text-xs text-white/25">DailyFuel · v0.1</p>
+      <p className="pb-2 text-center text-xs text-white/25">DailyFuel · v0.2.0</p>
     </PageShell>
   );
 }

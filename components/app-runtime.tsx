@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useAppData } from "@/lib/store";
+import { initSync } from "@/lib/sync";
 import { hexToRgbChannels, lighten } from "@/lib/utils";
 
 /**
@@ -27,6 +28,8 @@ export function AppRuntime() {
     askedPersist.current = true;
     // Reduce the chance the browser evicts our local data. No-op where unsupported.
     navigator.storage?.persist?.().catch(() => {});
+    // Start optional cloud sync (no-op unless Supabase is configured + signed in).
+    initSync();
   }, []);
 
   return null;

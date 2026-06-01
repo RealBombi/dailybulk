@@ -1,6 +1,6 @@
 {
   "name": "dailyfuel",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -10,6 +10,7 @@
     "gen:icons": "node scripts/gen-icons.mjs"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.106.2",
     "@zxing/browser": "^0.1.5",
     "@zxing/library": "^0.21.3",
     "clsx": "^2.1.1",

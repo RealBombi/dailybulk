@@ -175,6 +175,33 @@ export function useAppData(): AppData {
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
 
+// ---------------------------------------------------------------------------
+// Non-React access — used by the cloud-sync engine (lib/sync.ts) to read the
+// current data, react to changes, and apply data pulled from the cloud. This
+// keeps sync logic outside the store while reusing the same source of truth.
+// ---------------------------------------------------------------------------
+
+/** Read the current app data (loads from localStorage on first call). */
+export function getData(): AppData {
+  load();
+  return data;
+}
+
+/** Subscribe to any data change. Returns an unsubscribe function. */
+export function subscribeData(cb: () => void): () => void {
+  load();
+  listeners.add(cb);
+  return () => listeners.delete(cb);
+}
+
+/**
+ * Replace all app data wholesale (e.g. restoring from the cloud). Accepts a
+ * partial/unknown shape and fills defaults, exactly like importing a backup.
+ */
+export function replaceAllData(raw: Partial<AppData>): void {
+  set(coerce(raw));
+}
+
 /** True once localStorage has been read on the client. */
 export function useHydrated(): boolean {
   return useSyncExternalStore(
