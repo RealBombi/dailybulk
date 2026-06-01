@@ -145,16 +145,38 @@ function SignedOut() {
 }
 
 function AuthPanel({ onDone }: { onDone: () => void }) {
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState<null | "signin" | "signup" | "google">(null);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
 
-  const run = async (mode: "signin" | "signup") => {
-    setBusy(mode);
+  const switchMode = (m: "signin" | "signup") => {
+    setMode(m);
     setError(null);
     setInfo(null);
+    setConfirm("");
+  };
+
+  const run = async () => {
+    setError(null);
+    setInfo(null);
+
+    // Validate account creation client-side before hitting Supabase.
+    if (mode === "signup") {
+      if (password.length < 6) {
+        setError("Password must be at least 6 characters.");
+        return;
+      }
+      if (password !== confirm) {
+        setError("Passwords do not match.");
+        return;
+      }
+    }
+
+    setBusy(mode);
     const fn = mode === "signin" ? signIn : signUp;
     const res = await fn(email.trim(), password);
     setBusy(null);
@@ -165,6 +187,8 @@ function AuthPanel({ onDone }: { onDone: () => void }) {
     if (res.needsConfirmation) {
       setInfo("Check your email to confirm your account, then sign in.");
       setPassword("");
+      setConfirm("");
+      switchMode("signin");
       return;
     }
     onDone(); // signed in — the auth listener takes over
@@ -193,7 +217,7 @@ function AuthPanel({ onDone }: { onDone: () => void }) {
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          void run("signin");
+          void run();
         }}
         className="flex flex-col gap-3"
       >
@@ -208,28 +232,48 @@ function AuthPanel({ onDone }: { onDone: () => void }) {
         <Field
           type="password"
           placeholder="Password"
-          autoComplete="current-password"
+          autoComplete={mode === "signin" ? "current-password" : "new-password"}
           value={password}
           onChange={setPassword}
           disabled={disabled}
           minLength={6}
         />
+        {mode === "signup" && (
+          <Field
+            type="password"
+            placeholder="Confirm password"
+            autoComplete="new-password"
+            value={confirm}
+            onChange={setConfirm}
+            disabled={disabled}
+            minLength={6}
+          />
+        )}
 
         {error && <p className="text-xs text-red-300">{error}</p>}
         {info && <p className="text-xs text-emerald-300">{info}</p>}
 
         <Button type="submit" disabled={disabled}>
-          {busy === "signin" ? "Signing in…" : "Sign in"}
-        </Button>
-        <Button
-          type="button"
-          variant="secondary"
-          disabled={disabled}
-          onClick={() => void run("signup")}
-        >
-          {busy === "signup" ? "Creating account…" : "Create account"}
+          {mode === "signin"
+            ? busy === "signin"
+              ? "Signing in…"
+              : "Sign in"
+            : busy === "signup"
+              ? "Creating account…"
+              : "Create account"}
         </Button>
       </form>
+
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => switchMode(mode === "signin" ? "signup" : "signin")}
+        className="tap -mt-1 text-center text-xs text-white/50 hover:text-white/80 disabled:opacity-50"
+      >
+        {mode === "signin"
+          ? "New here? Create an account"
+          : "Already have an account? Sign in"}
+      </button>
 
       <div className="flex items-center gap-3 py-0.5">
         <span className="h-px flex-1 bg-white/10" />
