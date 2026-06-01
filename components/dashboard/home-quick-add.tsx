@@ -6,6 +6,7 @@ import { Check, Star, Zap } from "lucide-react";
 import { addFoodEntry, useAppData } from "@/lib/store";
 import {
   favoriteFoods,
+  isSaved,
   nonFavoriteRecent,
   type FoodTemplate,
 } from "@/lib/recent";
@@ -39,8 +40,7 @@ export function HomeQuickAdd() {
     window.setTimeout(() => setToast(null), 1500);
   };
 
-  const isFav = (t: FoodTemplate) =>
-    data.favorites.includes(t.key);
+  const isFav = (t: FoodTemplate) => isSaved(data, t.key);
 
   return (
     <div className="glass flex flex-col gap-3 p-5">

@@ -1,11 +1,12 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Bookmark, Plus } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { Plus, Star } from "lucide-react";
 import type { NormalizedFood } from "@/lib/food/types";
 import { scaleNutrition, suggestPortion } from "@/lib/food/normalize";
 import type { AmountUnit } from "@/lib/types";
-import { addFoodEntry, addSavedMeal } from "@/lib/store";
+import { addFoodEntry, isFoodSaved, toggleSavedFood, useAppData } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { AmountInput } from "@/components/ui/amount-input";
 
@@ -20,14 +21,23 @@ export function PortionEditor({
   onAdded: () => void;
   date?: string;
 }) {
+  const data = useAppData();
   const suggested = useRef(suggestPortion(food)).current;
   const [amount, setAmount] = useState(suggested.amount);
   const [unit, setUnit] = useState<AmountUnit>(suggested.unit);
-  const [saved, setSaved] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
 
   const valid = amount > 0;
   const scaled = scaleNutrition(food, amount || 0, unit);
   const source = food.source === "usda" ? "usda" : "open_food_facts";
+  // Reflect persistent saved state (matched by fingerprint, not amount).
+  void data; // re-render when savedMeals change
+  const saved = isFoodSaved({
+    source,
+    externalId: food.externalId,
+    barcode: food.barcode,
+    name: food.name,
+  });
 
   const add = () => {
     if (!valid) return;
@@ -49,8 +59,8 @@ export function PortionEditor({
   };
 
   const save = () => {
-    if (!valid) return;
-    addSavedMeal({
+    if (!valid && !saved) return;
+    const nowSaved = toggleSavedFood({
       name: food.name,
       brand: food.brand,
       calories: scaled.calories,
@@ -63,7 +73,8 @@ export function PortionEditor({
       externalId: food.externalId,
       barcode: food.barcode,
     });
-    setSaved(true);
+    setToast(nowSaved ? "Saved to favorites" : "Removed from favorites");
+    window.setTimeout(() => setToast(null), 1500);
   };
 
   return (
@@ -119,13 +130,26 @@ export function PortionEditor({
           onClick={save}
           variant="secondary"
           size="lg"
-          disabled={saved || !valid}
+          disabled={!valid && !saved}
           className="px-4"
         >
-          <Bookmark className="h-5 w-5" />
+          <Star className={`h-5 w-5 ${saved ? "fill-accent text-accent" : ""}`} />
           {saved ? "Saved" : "Save"}
         </Button>
       </div>
+
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8 }}
+            className="fixed inset-x-0 bottom-24 z-[80] mx-auto flex w-fit items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white shadow-glow"
+          >
+            <Star className="h-4 w-4 fill-white" /> {toast}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

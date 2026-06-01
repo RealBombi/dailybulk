@@ -15,7 +15,7 @@ export function SavedMealsTab({
 
   if (savedMeals.length === 0) {
     return (
-      <EmptyState message="No saved meals yet. Save a food after logging it, or tick 'Save as meal' on the Manual tab." />
+      <EmptyState message="No saved foods yet. Tap the star on any food — a search result, a scanned product, or a recent food — to save it here." />
     );
   }
 

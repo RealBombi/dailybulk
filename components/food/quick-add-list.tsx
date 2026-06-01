@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { Star } from "lucide-react";
-import { toggleFavorite, useAppData } from "@/lib/store";
+import { toggleSavedFood, useAppData } from "@/lib/store";
 import {
   favoriteFoods,
+  isSaved,
   nonFavoriteRecent,
   type FoodTemplate,
 } from "@/lib/recent";
@@ -30,6 +32,25 @@ export function QuickAddList({
   const favs = favoriteFoods(data);
   const recents = nonFavoriteRecent(data, 8);
   const [picked, setPicked] = useState<FoodTemplate | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+
+  const star = (t: FoodTemplate) => {
+    const nowSaved = toggleSavedFood({
+      name: t.name,
+      brand: t.brand,
+      calories: t.calories,
+      protein: t.protein,
+      carbs: t.carbs,
+      fat: t.fat,
+      amount: t.amount,
+      amountUnit: t.amountUnit,
+      source: t.source,
+      externalId: t.externalId,
+      barcode: t.barcode,
+    });
+    setToast(nowSaved ? "Saved to favorites" : "Removed from favorites");
+    window.setTimeout(() => setToast(null), 1500);
+  };
 
   if (favs.length === 0 && recents.length === 0) {
     return (
@@ -53,12 +74,20 @@ export function QuickAddList({
             template={t}
             favorited
             onPick={() => setPicked(t)}
+            onStar={() => star(t)}
           />
         ))}
         {recents.map((t) => (
-          <Row key={`r-${t.key}`} template={t} onPick={() => setPicked(t)} />
+          <Row
+            key={`r-${t.key}`}
+            template={t}
+            favorited={isSaved(data, t.key)}
+            onPick={() => setPicked(t)}
+            onStar={() => star(t)}
+          />
         ))}
       </div>
+
       <QuickPortionSheet
         template={picked}
         date={date}
@@ -68,6 +97,19 @@ export function QuickAddList({
         }}
         onClose={() => setPicked(null)}
       />
+
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8 }}
+            className="fixed inset-x-0 bottom-24 z-[80] mx-auto flex w-fit items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white shadow-glow"
+          >
+            <Star className="h-4 w-4 fill-white" /> {toast}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </section>
   );
 }
@@ -76,19 +118,21 @@ function Row({
   template,
   favorited = false,
   onPick,
+  onStar,
 }: {
   template: FoodTemplate;
   favorited?: boolean;
   onPick: () => void;
+  onStar: () => void;
 }) {
   return (
     <div className="flex items-center gap-2 rounded-2xl border border-white/5 bg-white/[0.03]">
       <button
         onClick={(e) => {
           e.stopPropagation();
-          toggleFavorite(template.key);
+          onStar();
         }}
-        aria-label={favorited ? "Unfavorite" : "Favorite"}
+        aria-label={favorited ? "Remove from favorites" : "Save to favorites"}
         className="tap rounded-full p-3 pl-3"
       >
         <Star

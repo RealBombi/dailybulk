@@ -23,12 +23,12 @@ export type FoodTemplate = {
 
 /** Stable id for deduping the same food across multiple entries. */
 export function fingerprint(e: {
-  source: string;
+  source?: string;
   externalId?: string;
   barcode?: string;
   name: string;
 }): string {
-  if (e.externalId) return `${e.source}|${e.externalId}`;
+  if (e.externalId) return `${e.source ?? "manual"}|${e.externalId}`;
   if (e.barcode) return `barcode|${e.barcode}`;
   return `name|${e.name.trim().toLowerCase()}`;
 }
@@ -66,15 +66,38 @@ export function recentFoods(data: AppData, limit = 20): FoodTemplate[] {
   return Array.from(seen.values());
 }
 
-/** Recent foods that are currently starred, newest-used first. */
-export function favoriteFoods(data: AppData): FoodTemplate[] {
-  const all = recentFoods(data, 200);
-  const map = new Map(all.map((t) => [t.key, t] as const));
-  return data.favorites.map((k) => map.get(k)).filter(Boolean) as FoodTemplate[];
+/** Fingerprints of all saved/starred foods. */
+export function savedFingerprints(data: AppData): Set<string> {
+  return new Set(data.savedMeals.map((m) => fingerprint(m)));
 }
 
-/** Recent foods that aren't favorited (favorites are shown separately). */
+export function isSaved(data: AppData, key: string): boolean {
+  return savedFingerprints(data).has(key);
+}
+
+/** Saved/starred foods as re-loggable templates, newest-saved first. */
+export function favoriteFoods(data: AppData): FoodTemplate[] {
+  return data.savedMeals.map((m) => ({
+    key: fingerprint(m),
+    name: m.name,
+    brand: m.brand,
+    calories: m.calories,
+    protein: m.protein,
+    carbs: m.carbs,
+    fat: m.fat,
+    amount: m.amount,
+    amountUnit: m.amountUnit,
+    source: (m.source ?? "manual") as FoodSource,
+    externalId: m.externalId,
+    barcode: m.barcode,
+    lastUsed: m.createdAt.slice(0, 10),
+  }));
+}
+
+/** Recently logged foods that aren't already saved (shown after favorites). */
 export function nonFavoriteRecent(data: AppData, limit = 10): FoodTemplate[] {
-  const favs = new Set(data.favorites);
-  return recentFoods(data, limit + favs.size).filter((t) => !favs.has(t.key)).slice(0, limit);
+  const saved = savedFingerprints(data);
+  return recentFoods(data, limit + saved.size)
+    .filter((t) => !saved.has(t.key))
+    .slice(0, limit);
 }

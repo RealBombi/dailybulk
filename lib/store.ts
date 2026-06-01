@@ -11,6 +11,7 @@ import type {
   WeightLog,
 } from "./types";
 import { todayStr, uid } from "./utils";
+import { fingerprint } from "./recent";
 
 /**
  * Local-first data store.
@@ -85,12 +86,54 @@ function load(): void {
           settings: { ...data.settings, onboardingCompleted: true },
         };
       }
+      // Migration: the old key-only `favorites` list is replaced by unified
+      // saved foods. Fold any legacy favorite keys (resolved from logged
+      // foods) into savedMeals so previously-starred foods keep showing up.
+      data = migrateFavoritesToSaved(data);
     }
   } catch {
     // Corrupt storage — fall back to defaults rather than crash.
     data = defaultData;
   }
   hydrated = true;
+}
+
+/** Idempotently move legacy favorite keys into savedMeals (dedup by
+ *  fingerprint). Then drops the favorites list so it's no longer the source
+ *  of truth. Safe to re-run. */
+function migrateFavoritesToSaved(d: AppData): AppData {
+  if (!d.favorites || d.favorites.length === 0) return d;
+  const savedKeys = new Set(d.savedMeals.map((m) => fingerprint(m)));
+  const additions: SavedMeal[] = [];
+  for (const key of d.favorites) {
+    if (savedKeys.has(key)) continue;
+    // Resolve the key from the most recent matching logged entry.
+    const entry = [...d.foodEntries]
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .find((e) => fingerprint(e) === key);
+    if (!entry) continue;
+    savedKeys.add(key);
+    additions.push({
+      name: entry.name,
+      brand: entry.brand,
+      calories: entry.calories,
+      protein: entry.protein,
+      carbs: entry.carbs,
+      fat: entry.fat,
+      amount: entry.amount,
+      amountUnit: entry.amountUnit,
+      source: savedMealSource(entry.source),
+      externalId: entry.externalId,
+      barcode: entry.barcode,
+      id: uid(),
+      createdAt: entry.createdAt,
+    });
+  }
+  return {
+    ...d,
+    savedMeals: [...additions, ...d.savedMeals],
+    favorites: [],
+  };
 }
 
 function persist(): void {
@@ -239,17 +282,72 @@ export function deleteSavedMeal(id: string): void {
 }
 
 // ---------------------------------------------------------------------------
-// Favorites
+// Saved foods (the "star"). A saved food IS a saved meal — one unified store
+// so starring a food makes it appear in Saved Foods (and Quick add favorites).
 // ---------------------------------------------------------------------------
 
-export function toggleFavorite(key: string): void {
-  const has = data.favorites.includes(key);
-  set({
-    ...data,
-    favorites: has
-      ? data.favorites.filter((k) => k !== key)
-      : [key, ...data.favorites],
-  });
+type SavedFoodInput = {
+  name: string;
+  brand?: string;
+  calories: number;
+  protein?: number;
+  carbs?: number;
+  fat?: number;
+  amount: number;
+  amountUnit: SavedMeal["amountUnit"];
+  source: string;
+  externalId?: string;
+  barcode?: string;
+};
+
+function savedMealSource(source: string): SavedMeal["source"] {
+  return source === "usda" || source === "open_food_facts"
+    ? source
+    : "manual";
+}
+
+/** Is this food currently saved/starred? Matched by fingerprint. */
+export function isFoodSaved(food: {
+  source: string;
+  externalId?: string;
+  barcode?: string;
+  name: string;
+}): boolean {
+  const key = fingerprint(food);
+  return data.savedMeals.some((m) => fingerprint(m) === key);
+}
+
+/**
+ * Star/unstar a food. Returns true if it is now saved, false if removed.
+ * Deduped by fingerprint so the same food can't be saved twice.
+ */
+export function toggleSavedFood(food: SavedFoodInput): boolean {
+  const key = fingerprint(food);
+  const existing = data.savedMeals.find((m) => fingerprint(m) === key);
+  if (existing) {
+    set({
+      ...data,
+      savedMeals: data.savedMeals.filter((m) => m.id !== existing.id),
+    });
+    return false;
+  }
+  const created: SavedMeal = {
+    name: food.name,
+    brand: food.brand,
+    calories: food.calories,
+    protein: food.protein,
+    carbs: food.carbs,
+    fat: food.fat,
+    amount: food.amount,
+    amountUnit: food.amountUnit,
+    source: savedMealSource(food.source),
+    externalId: food.externalId,
+    barcode: food.barcode,
+    id: uid(),
+    createdAt: new Date().toISOString(),
+  };
+  set({ ...data, savedMeals: [created, ...data.savedMeals] });
+  return true;
 }
 
 // ---------------------------------------------------------------------------

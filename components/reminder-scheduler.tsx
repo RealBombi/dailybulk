@@ -124,11 +124,16 @@ export function ReminderScheduler() {
         }
         if (due) {
           writeMarker(CALORIE_REMINDER_SENT_KEY, marker);
-          void showNotification(
-            "DailyFuel calorie reminder",
-            `You still need ${remaining} kcal today.`,
-            "dailyfuel-calorie",
-          );
+          // Small delay so that when both reminders are due in the same tick
+          // the OS doesn't visually coalesce them into one banner. The calls
+          // are independent and use distinct tags either way.
+          window.setTimeout(() => {
+            void showNotification(
+              "DailyFuel calorie reminder",
+              `You still need ${remaining} kcal today.`,
+              "dailyfuel-calorie",
+            );
+          }, 1200);
         }
       }
     };
