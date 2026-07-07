@@ -36,12 +36,13 @@ export async function searchUsda(
   query: string,
   apiKey: string,
   pageSize = 20,
+  dataType = "Foundation,SR Legacy,Branded",
 ): Promise<NormalizedFood[]> {
   const url = new URL(SEARCH_URL);
   url.searchParams.set("api_key", apiKey);
   url.searchParams.set("query", query);
   url.searchParams.set("pageSize", String(pageSize));
-  url.searchParams.set("dataType", "Foundation,SR Legacy,Branded");
+  url.searchParams.set("dataType", dataType);
 
   const res = await fetch(url, { headers: { Accept: "application/json" } });
   if (!res.ok) {

@@ -125,7 +125,8 @@ const MATCH_SYSTEM = `You match parsed food items to USDA database candidates fo
 
 Rules:
 - For each item pick the candidate that best matches the food AS PREPARED (cooked vs raw, light vs regular, skimmed vs whole).
-- Prefer generic (non-branded) entries with plausible per-100g calories over branded ones, unless the user named a brand.
+- For plain whole foods (chicken breast, rice, eggs, milk...) ALWAYS prefer generic entries. Pick a BRANDED candidate only when the item explicitly names that brand — branded products with matching names are often composite ready-meals, not the plain food.
+- Sanity-check the per-100g macros against what the food should plausibly contain. Plain cooked meat is high-protein and ~0g carbs — a "chicken breast" candidate with 13g carbs/100g is a ready-meal with sides, so reject it. Similar plausibility checks apply to other foods.
 - Return -1 when no candidate is an acceptable match — a wrong match is worse than no match.
 - Never invent nutrition data; you are only choosing among the given candidates.`;
 
@@ -150,9 +151,11 @@ const ALLOWED_IMAGE_TYPES = new Set([
 function candidateLine(i: number, f: NormalizedFood): string {
   const parts = [
     `[${i}] ${f.name}`,
-    f.brand ? `brand: ${f.brand}` : "generic",
-    `${f.caloriesPer100g ?? "?"} kcal/100g`,
-    `${f.proteinPer100g ?? "?"}g protein/100g`,
+    f.brand ? `BRANDED: ${f.brand}` : "generic",
+    `per 100g: ${f.caloriesPer100g ?? "?"} kcal`,
+    `${f.proteinPer100g ?? "?"}g protein`,
+    `${f.carbsPer100g ?? "?"}g carbs`,
+    `${f.fatPer100g ?? "?"}g fat`,
   ];
   return parts.join(" | ");
 }
@@ -248,12 +251,27 @@ export async function POST(request: Request) {
     }
 
     // ---- Step 2: look every ingredient up in USDA (nutrition source of truth) ----
+    // Generic entries (Foundation/SR Legacy) first — branded results are often
+    // composite ready-meals whose names coincide with plain foods (a branded
+    // "GRILLED CHICKEN BREAST" frozen dinner is not 200 g of chicken breast).
+    // Branded entries only fill in when generic coverage is thin.
     const candidates = await Promise.all(
-      items.map((item) =>
-        searchUsda(item.searchQuery, usdaKey, CANDIDATES_PER_ITEM).catch(
-          () => [] as NormalizedFood[],
-        ),
-      ),
+      items.map(async (item) => {
+        const generic = await searchUsda(
+          item.searchQuery,
+          usdaKey,
+          CANDIDATES_PER_ITEM,
+          "Foundation,SR Legacy",
+        ).catch(() => [] as NormalizedFood[]);
+        if (generic.length >= 3) return generic;
+        const branded = await searchUsda(
+          item.searchQuery,
+          usdaKey,
+          CANDIDATES_PER_ITEM - generic.length,
+          "Branded",
+        ).catch(() => [] as NormalizedFood[]);
+        return [...generic, ...branded];
+      }),
     );
 
     // ---- Step 3: Claude picks the best USDA record per item (or none) ----
