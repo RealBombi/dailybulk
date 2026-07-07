@@ -19,7 +19,11 @@ export function TodayList({ entries }: { entries: FoodEntry[] }) {
           key={e.id}
           className="flex items-center gap-3 rounded-2xl border border-white/5 bg-white/[0.03] px-4 py-3"
         >
-          <div className="min-w-0 flex-1">
+          <button
+            onClick={() => setEditing(e)}
+            className="tap min-w-0 flex-1 text-left"
+            aria-label={`View ${e.name}`}
+          >
             <p className="truncate text-sm font-medium">{e.name}</p>
             <p className="truncate text-xs text-white/45">
               {round(e.calories)} kcal · {e.amount}
@@ -28,7 +32,7 @@ export function TodayList({ entries }: { entries: FoodEntry[] }) {
                 : e.amountUnit}
               {e.protein !== undefined ? ` · ${round(e.protein)}g P` : ""}
             </p>
-          </div>
+          </button>
           <button
             onClick={() => setEditing(e)}
             className="tap rounded-full p-2 text-white/30 hover:text-white"
@@ -88,15 +92,33 @@ function EditAmount({
         </label>
         <AmountInput value={amount} onValueChange={setAmount} aria-label="Amount" />
       </div>
-      <p className="text-sm text-white/50">
-        {round(entry.calories * factor)} kcal
-        {entry.protein !== undefined
-          ? ` · ${scale(entry.protein)}g protein`
-          : ""}
-      </p>
+      <div className="grid grid-cols-4 gap-2 rounded-2xl bg-white/[0.04] p-3 text-center">
+        <Stat value={`${round(entry.calories * factor)}`} label="kcal" />
+        <Stat
+          value={entry.protein !== undefined ? `${scale(entry.protein)}g` : "—"}
+          label="protein"
+        />
+        <Stat
+          value={entry.carbs !== undefined ? `${scale(entry.carbs)}g` : "—"}
+          label="carbs"
+        />
+        <Stat
+          value={entry.fat !== undefined ? `${scale(entry.fat)}g` : "—"}
+          label="fat"
+        />
+      </div>
       <Button size="lg" onClick={save} disabled={amount <= 0}>
         Save
       </Button>
+    </div>
+  );
+}
+
+function Stat({ value, label }: { value: string; label: string }) {
+  return (
+    <div>
+      <p className="text-base font-semibold tabular-nums">{value}</p>
+      <p className="text-[10px] uppercase tracking-wider text-white/40">{label}</p>
     </div>
   );
 }

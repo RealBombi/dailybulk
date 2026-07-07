@@ -11,6 +11,7 @@ import { BarcodeTab } from "@/components/food/barcode-tab";
 import { SavedMealsTab } from "@/components/food/saved-meals-tab";
 import { ManualAddTab } from "@/components/food/manual-add-tab";
 import { QuickAddTab } from "@/components/food/quick-add-tab";
+import { AiTab } from "@/components/food/ai-tab";
 import { TodayList } from "@/components/food/today-list";
 import { QuickAddList } from "@/components/food/quick-add-list";
 import { CopyFromYesterday } from "@/components/food/copy-from-yesterday";
@@ -18,10 +19,11 @@ import { useAppData } from "@/lib/store";
 import { entriesForDate, totalsForDate } from "@/lib/selectors";
 import { addDays, parseDateStr, round, todayStr } from "@/lib/utils";
 
-type Mode = "search" | "barcode" | "saved" | "manual" | "quick";
+type Mode = "search" | "ai" | "barcode" | "saved" | "manual" | "quick";
 
 const TABS: { id: Mode; label: string }[] = [
   { id: "search", label: "Search" },
+  { id: "ai", label: "AI" },
   { id: "barcode", label: "Barcode" },
   { id: "saved", label: "Saved" },
   { id: "manual", label: "Manual" },
@@ -119,6 +121,7 @@ function FoodContent() {
 
       <div className="glass p-5">
         {mode === "search" && <SearchTab onAdded={onAdded} date={selectedDate} />}
+        {mode === "ai" && <AiTab onAdded={onAdded} date={selectedDate} />}
         {mode === "barcode" && <BarcodeTab onAdded={onAdded} date={selectedDate} />}
         {mode === "saved" && <SavedMealsTab onAdded={onAdded} date={selectedDate} />}
         {mode === "manual" && <ManualAddTab onAdded={onAdded} date={selectedDate} />}

@@ -1,6 +1,6 @@
 {
   "name": "dailyfuel",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -10,6 +10,7 @@
     "gen:icons": "node scripts/gen-icons.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.110.0",
     "@supabase/supabase-js": "^2.106.2",
     "@zxing/browser": "^0.1.5",
     "@zxing/library": "^0.21.3",
