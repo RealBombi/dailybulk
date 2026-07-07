@@ -345,7 +345,10 @@ function DraftRow({
           <p className="truncate text-[11px] text-white/30">{draft.assumption}</p>
         )}
         <p className="text-xs text-white/60">
-          {n.calories} kcal{n.protein !== undefined ? ` · ${n.protein}g protein` : ""}
+          {n.calories} kcal
+          {n.protein !== undefined ? ` · ${n.protein}g P` : ""}
+          {n.carbs !== undefined ? ` · ${n.carbs}g C` : ""}
+          {n.fat !== undefined ? ` · ${n.fat}g F` : ""}
         </p>
       </div>
       <div className="flex shrink-0 items-center gap-1">
