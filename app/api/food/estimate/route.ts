@@ -138,6 +138,7 @@ const MATCH_SYSTEM = `You match parsed food items to USDA database candidates fo
 Rules:
 - For each item pick the candidate that best matches the food AS PREPARED (cooked vs raw, light vs regular, skimmed vs whole).
 - For plain whole foods (chicken breast, rice, eggs, milk...) ALWAYS prefer generic entries. Pick a BRANDED candidate only when the item explicitly names that brand — branded products with matching names are often composite ready-meals, not the plain food.
+- NEVER match a restaurant or brand product (McDonald's, Tyson...) to a homemade or unbranded dish — a "chicken wrap" is not a McDonald's wrap unless the user said McDonald's. Prefer a generic dish entry ("Wrap sandwich, with chicken") or return -1.
 - Sanity-check the per-100g macros against what the food should plausibly contain. Plain cooked meat is high-protein and ~0g carbs — a "chicken breast" candidate with 13g carbs/100g is a ready-meal with sides, so reject it. Similar plausibility checks apply to other foods.
 - Return -1 when no candidate is an acceptable match — a wrong match is worse than no match.
 - Never invent nutrition data; you are only choosing among the given candidates.`;
@@ -186,7 +187,7 @@ async function findCandidates(
   usdaKey: string,
 ): Promise<NormalizedFood[]> {
   const generic = (
-    await searchUsda(query, usdaKey, CANDIDATES_PER_ITEM, "Foundation,SR Legacy").catch(
+    await searchUsda(query, usdaKey, CANDIDATES_PER_ITEM, "Foundation,SR Legacy,Survey (FNDDS)").catch(
       () => [] as NormalizedFood[],
     )
   ).filter(usable);
@@ -206,7 +207,7 @@ async function findCandidates(
   // Nothing found — the query is often over-specified ("oatmeal cooked").
   for (const retry of fallbackQueries(query)) {
     const again = (
-      await searchUsda(retry, usdaKey, CANDIDATES_PER_ITEM, "Foundation,SR Legacy").catch(
+      await searchUsda(retry, usdaKey, CANDIDATES_PER_ITEM, "Foundation,SR Legacy,Survey (FNDDS)").catch(
         () => [] as NormalizedFood[],
       )
     ).filter(usable);

@@ -3,9 +3,14 @@ import type { NormalizedFood } from "../types";
 
 const SEARCH_URL = "https://api.nal.usda.gov/fdc/v1/foods/search";
 
-// USDA FoodData Central nutrient numbers.
+// USDA FoodData Central nutrient numbers. Energy has three variants: classic
+// kcal (208, used by SR Legacy/Branded/FNDDS) and the Atwater factors (957/
+// 958, used by newer Foundation entries INSTEAD of 208 — without them,
+// Foundation foods like "Milk, whole" appear to have no calorie data).
 const NUTRIENT = {
   energyKcal: "208",
+  energyAtwaterGeneral: "957",
+  energyAtwaterSpecific: "958",
   protein: "203",
   carbs: "205",
   fat: "204",
@@ -30,6 +35,14 @@ type UsdaFood = {
 function nutrientValue(food: UsdaFood, number: string): number | undefined {
   const found = food.foodNutrients?.find((n) => n.nutrientNumber === number);
   return found?.value;
+}
+
+function energyKcal(food: UsdaFood): number | undefined {
+  return (
+    nutrientValue(food, NUTRIENT.energyKcal) ??
+    nutrientValue(food, NUTRIENT.energyAtwaterSpecific) ??
+    nutrientValue(food, NUTRIENT.energyAtwaterGeneral)
+  );
 }
 
 export async function searchUsda(
@@ -62,7 +75,7 @@ export async function searchUsda(
       barcode: food.gtinUpc || undefined,
       name: food.description ?? "Unknown food",
       brand: food.brandName || food.brandOwner || undefined,
-      caloriesPer100g: nutrientValue(food, NUTRIENT.energyKcal),
+      caloriesPer100g: energyKcal(food),
       proteinPer100g: nutrientValue(food, NUTRIENT.protein),
       carbsPer100g: nutrientValue(food, NUTRIENT.carbs),
       fatPer100g: nutrientValue(food, NUTRIENT.fat),
