@@ -14,7 +14,8 @@ export async function GET(request: Request) {
   }
 
   const apiKey = process.env.USDA_FDC_API_KEY;
-  const results: NormalizedFood[] = [];
+  let usdaResults: NormalizedFood[] = [];
+  let offResults: NormalizedFood[] = [];
   let usdaUsed = false;
 
   // USDA first for generic foods (PRD priority), Open Food Facts as backup.
@@ -25,7 +26,7 @@ export async function GET(request: Request) {
     tasks.push(
       searchUsda(query, apiKey)
         .then((r) => {
-          results.push(...r);
+          usdaResults = r;
         })
         .catch(() => {}),
     );
@@ -34,12 +35,22 @@ export async function GET(request: Request) {
   tasks.push(
     searchOpenFoodFacts(query)
       .then((r) => {
-        results.push(...r);
+        offResults = r;
       })
       .catch(() => {}),
   );
 
   await Promise.all(tasks);
+
+  // Rank for usefulness rather than raw API order:
+  //  1. Entries without calorie data are useless (they'd log 0 kcal) — drop.
+  //  2. Generic USDA entries (plain foods) outrank branded products — raw API
+  //     order buries "Chicken, breast, cooked" under a wall of US-supermarket
+  //     ready-meals that happen to be named "GRILLED CHICKEN BREAST".
+  const usable = (f: NormalizedFood) => f.caloriesPer100g !== undefined;
+  const generic = usdaResults.filter((f) => usable(f) && !f.brand);
+  const branded = usdaResults.filter((f) => usable(f) && Boolean(f.brand));
+  const results = [...generic, ...branded, ...offResults.filter(usable)];
 
   return NextResponse.json({ results, usda: usdaUsed });
 }
