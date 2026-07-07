@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { searchUsda } from "@/lib/food/providers/usda";
+import {
+  getByBarcode,
+  searchOpenFoodFacts,
+} from "@/lib/food/providers/open-food-facts";
 import { scaleNutrition } from "@/lib/food/normalize";
 import type { NormalizedFood } from "@/lib/food/types";
 
@@ -55,6 +59,11 @@ const PARSE_SCHEMA = {
             description:
               "Any portion/preparation assumption made, briefly, e.g. 'assumed 1 glass = 250 ml'",
           },
+          barcode: {
+            type: "string",
+            description:
+              "ONLY if a product barcode's digits (EAN/UPC, 8-14 digits printed under the bars) are clearly readable in a photo: those digits. Omit otherwise; never guess.",
+          },
         },
         required: ["label", "searchQuery", "grams"],
         additionalProperties: false,
@@ -95,6 +104,7 @@ type ParsedItem = {
   searchQuery: string;
   grams: number;
   assumption?: string;
+  barcode?: string;
 };
 
 /** Extract and parse the JSON text of a structured-output response. */
@@ -116,9 +126,11 @@ Rules:
 - Break the meal into distinct ingredients AS PREPARED. Preparation details matter: "fried in butter" means butter is its own ingredient; "light butter" means the light/reduced-fat variant; "skimmed milk" is not whole milk.
 - NEVER output calorie or macro numbers. A separate food database provides all nutrition data. Your only quantitative output is the estimated grams eaten.
 - Estimate grams conservatively from common portions (1 egg ≈ 50 g, 1 glass ≈ 250 ml ≈ 250 g, 1 slice bread ≈ 35 g, 1 tbsp butter/oil ≈ 14 g, 1 chicken breast ≈ 170 g). When the user states an amount, use it exactly.
+- When the user states an ingredient's measured amount ("80g oats", "50g dry rice"), output that ingredient in the form it was measured — "Oats, dry" with searchQuery "oats" — NOT the cooked dish, so the database values apply to the stated grams. Only use cooked-dish entries when the user describes the finished dish without ingredient amounts.
 - searchQuery must be a short generic term likely to match USDA FoodData Central (e.g. "shrimp cooked", "butter light", "bread white"). No brand names unless the user gave one.
 - Photos may include the meal itself and/or the product packaging or nutrition label. Use a label photo to identify the exact product, variant and brand (put the brand in searchQuery then) and to read the stated serving size — but never copy nutrition numbers from it; the database supplies all nutrition data.
-- If the user added comments or corrections, they override everything else.
+- If a barcode's digits are clearly readable in a photo, return them in the item's barcode field — they enable an exact product lookup.
+- If the user added comments or corrections, they override everything else. After a correction, the label must cleanly describe the corrected food ("Skimmed milk", not "Whole milk, skimmed").
 - At most ${MAX_ITEMS} items; merge trivial ones rather than exceeding it.`;
 
 const MATCH_SYSTEM = `You match parsed food items to USDA database candidates for a nutrition-tracking app.
@@ -147,6 +159,65 @@ const ALLOWED_IMAGE_TYPES = new Set([
   "image/webp",
   "image/gif",
 ]);
+
+const PREP_WORDS =
+  /\b(cooked|raw|fried|grilled|roasted|boiled|baked|steamed|prepared|fresh|dry|plain)\b/g;
+
+/** Progressively simpler retry queries when the primary search finds nothing. */
+function fallbackQueries(query: string): string[] {
+  const out: string[] = [];
+  const stripped = query.replace(PREP_WORDS, "").replace(/\s+/g, " ").trim();
+  if (stripped && stripped.toLowerCase() !== query.toLowerCase()) out.push(stripped);
+  const first = (stripped || query).split(" ")[0];
+  if (first && !out.includes(first) && first.toLowerCase() !== query.toLowerCase()) {
+    out.push(first);
+  }
+  return out;
+}
+
+const usable = (f: NormalizedFood) => f.caloriesPer100g !== undefined;
+
+/**
+ * Candidate ladder per ingredient: generic USDA → branded USDA → simplified
+ * query retries → Open Food Facts text search (covers European products).
+ */
+async function findCandidates(
+  query: string,
+  usdaKey: string,
+): Promise<NormalizedFood[]> {
+  const generic = (
+    await searchUsda(query, usdaKey, CANDIDATES_PER_ITEM, "Foundation,SR Legacy").catch(
+      () => [] as NormalizedFood[],
+    )
+  ).filter(usable);
+  if (generic.length >= 3) return generic;
+
+  const branded = (
+    await searchUsda(
+      query,
+      usdaKey,
+      CANDIDATES_PER_ITEM - generic.length,
+      "Branded",
+    ).catch(() => [] as NormalizedFood[])
+  ).filter(usable);
+  const combined = [...generic, ...branded];
+  if (combined.length > 0) return combined;
+
+  // Nothing found — the query is often over-specified ("oatmeal cooked").
+  for (const retry of fallbackQueries(query)) {
+    const again = (
+      await searchUsda(retry, usdaKey, CANDIDATES_PER_ITEM, "Foundation,SR Legacy").catch(
+        () => [] as NormalizedFood[],
+      )
+    ).filter(usable);
+    if (again.length > 0) return again;
+  }
+
+  // Last resort: Open Food Facts text search (has European/Nordic products).
+  return (
+    await searchOpenFoodFacts(query, 6).catch(() => [] as NormalizedFood[])
+  ).filter(usable);
+}
 
 function candidateLine(i: number, f: NormalizedFood): string {
   const parts = [
@@ -250,71 +321,73 @@ export async function POST(request: Request) {
       );
     }
 
-    // ---- Step 2: look every ingredient up in USDA (nutrition source of truth) ----
-    // Generic entries (Foundation/SR Legacy) first — branded results are often
-    // composite ready-meals whose names coincide with plain foods (a branded
-    // "GRILLED CHICKEN BREAST" frozen dinner is not 200 g of chicken breast).
-    // Branded entries only fill in when generic coverage is thin.
-    const candidates = await Promise.all(
+    // ---- Step 2: resolve each ingredient against the databases ----
+    // A readable barcode beats everything: Open Food Facts has the exact
+    // product (including European/Nordic goods USDA lacks), same as the
+    // Barcode tab. Otherwise run the USDA-first candidate ladder.
+    const resolved = await Promise.all(
       items.map(async (item) => {
-        const generic = await searchUsda(
-          item.searchQuery,
-          usdaKey,
-          CANDIDATES_PER_ITEM,
-          "Foundation,SR Legacy",
-        ).catch(() => [] as NormalizedFood[]);
-        if (generic.length >= 3) return generic;
-        const branded = await searchUsda(
-          item.searchQuery,
-          usdaKey,
-          CANDIDATES_PER_ITEM - generic.length,
-          "Branded",
-        ).catch(() => [] as NormalizedFood[]);
-        return [...generic, ...branded];
+        if (item.barcode && /^\d{8,14}$/.test(item.barcode)) {
+          const product = await getByBarcode(item.barcode).catch(() => null);
+          if (product && usable(product)) {
+            return { direct: product, candidates: [] as NormalizedFood[] };
+          }
+        }
+        return {
+          direct: null as NormalizedFood | null,
+          candidates: await findCandidates(item.searchQuery, usdaKey),
+        };
       }),
     );
 
-    // ---- Step 3: Claude picks the best USDA record per item (or none) ----
-    const matchPrompt = items
-      .map((item, i) => {
-        const list = candidates[i];
-        const lines =
-          list.length === 0
-            ? "(no candidates found)"
-            : list.map((f, j) => candidateLine(j, f)).join("\n");
-        return `Item ${i}: ${item.label} (as prepared; ~${item.grams} g)\nCandidates:\n${lines}`;
-      })
-      .join("\n\n");
+    // ---- Step 3: Claude picks the best record per unresolved item (or none) ----
+    const needsMatch = items
+      .map((_, i) => i)
+      .filter((i) => !resolved[i].direct && resolved[i].candidates.length > 0);
 
-    const matched = await client.messages.create({
-      model: MODEL,
-      max_tokens: 800,
-      system: [
-        {
-          type: "text",
-          text: MATCH_SYSTEM,
-          cache_control: { type: "ephemeral" },
-        },
-      ],
-      messages: [{ role: "user", content: matchPrompt }],
-      output_config: {
-        format: { type: "json_schema", schema: MATCH_SCHEMA },
-      },
-    });
-
-    const matchOut = jsonOutput<{
-      matches: { itemIndex: number; candidateIndex: number }[];
-    }>(matched);
     const decisions = new Map<number, number>();
-    for (const m of matchOut?.matches ?? []) {
-      decisions.set(m.itemIndex, m.candidateIndex);
+    if (needsMatch.length > 0) {
+      const matchPrompt = needsMatch
+        .map((i) => {
+          const lines = resolved[i].candidates
+            .map((f, j) => candidateLine(j, f))
+            .join("\n");
+          return `Item ${i}: ${items[i].label} (as prepared; ~${items[i].grams} g)\nCandidates:\n${lines}`;
+        })
+        .join("\n\n");
+
+      const matched = await client.messages.create({
+        model: MODEL,
+        max_tokens: 800,
+        system: [
+          {
+            type: "text",
+            text: MATCH_SYSTEM,
+            cache_control: { type: "ephemeral" },
+          },
+        ],
+        messages: [{ role: "user", content: matchPrompt }],
+        output_config: {
+          format: { type: "json_schema", schema: MATCH_SCHEMA },
+        },
+      });
+
+      const matchOut = jsonOutput<{
+        matches: { itemIndex: number; candidateIndex: number }[];
+      }>(matched);
+      for (const m of matchOut?.matches ?? []) {
+        decisions.set(m.itemIndex, m.candidateIndex);
+      }
     }
 
     // ---- Step 4: scale database nutrition to the estimated grams ----
     const results = items.map((item, i) => {
       const pick = decisions.get(i) ?? -1;
       const food =
-        pick >= 0 && pick < candidates[i].length ? candidates[i][pick] : null;
+        resolved[i].direct ??
+        (pick >= 0 && pick < resolved[i].candidates.length
+          ? resolved[i].candidates[pick]
+          : null);
       if (!food || food.caloriesPer100g === undefined) {
         return {
           label: item.label,
