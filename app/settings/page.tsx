@@ -17,6 +17,7 @@ import { PageHeader, PageShell } from "@/components/page-shell";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CloudSyncCard } from "@/components/settings/cloud-sync";
+import { PushRemindersCard } from "@/components/settings/push-reminders";
 
 const ACCENTS = ["#6366f1", "#22d3ee", "#34d399", "#f472b6", "#fbbf24"];
 
@@ -162,8 +163,8 @@ export default function SettingsPage() {
         </Button>
         {notifMsg && <p className="text-xs text-white/60">{notifMsg}</p>}
         <p className="text-xs text-white/40">
-          Reminder scheduling is stored on this device. Full background push
-          reminders will be added later.
+          Fires while the app is open. For reminders with the app closed,
+          enable Background reminders below.
         </p>
       </Card>
 
@@ -208,6 +209,8 @@ export default function SettingsPage() {
           </p>
         )}
       </Card>
+
+      <PushRemindersCard />
 
       <Card className="flex flex-col gap-4">
         <CardTitle>Preferences</CardTitle>
@@ -293,7 +296,7 @@ export default function SettingsPage() {
         </Button>
       </Card>
 
-      <p className="pb-2 text-center text-xs text-white/25">DailyFuel · v0.3.0</p>
+      <p className="pb-2 text-center text-xs text-white/25">DailyFuel · v0.4.0</p>
     </PageShell>
   );
 }
