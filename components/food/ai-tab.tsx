@@ -36,7 +36,11 @@ type EstimateItem = {
 
 type Draft = EstimateItem & { include: boolean };
 
+type Photo = { data: string; mediaType: string; name: string };
+
 const MAX_IMAGE_EDGE = 1024;
+/** Two photos: the meal itself plus e.g. the nutrition label on the pack. */
+const MAX_PHOTOS = 2;
 
 /** Downscale a photo client-side so uploads stay small and cheap. */
 async function fileToResizedBase64(
@@ -77,8 +81,7 @@ function scaled(per100g: Per100g, grams: number) {
 export function AiTab({ onAdded, date }: { onAdded: () => void; date?: string }) {
   const [text, setText] = useState("");
   const [comments, setComments] = useState("");
-  const [photo, setPhoto] = useState<{ data: string; mediaType: string } | null>(null);
-  const [photoName, setPhotoName] = useState<string | null>(null);
+  const [photos, setPhotos] = useState<Photo[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Draft[] | null>(null);
@@ -94,7 +97,9 @@ export function AiTab({ onAdded, date }: { onAdded: () => void; date?: string })
         body: JSON.stringify({
           text: text.trim() || undefined,
           comments: withComments ? comments.trim() || undefined : undefined,
-          image: photo ?? undefined,
+          images: photos.length
+            ? photos.map((p) => ({ data: p.data, mediaType: p.mediaType }))
+            : undefined,
         }),
       });
       const json = (await res.json()) as { items?: EstimateItem[]; error?: string };
@@ -110,17 +115,28 @@ export function AiTab({ onAdded, date }: { onAdded: () => void; date?: string })
     }
   };
 
-  const onPickPhoto = async (file: File) => {
+  const onPickPhotos = async (files: File[]) => {
     setError(null);
     try {
-      setPhoto(await fileToResizedBase64(file));
-      setPhotoName(file.name);
-      setDrafts(null);
+      const room = MAX_PHOTOS - photos.length;
+      const added = await Promise.all(
+        files.slice(0, room).map(async (file) => {
+          const resized = await fileToResizedBase64(file);
+          return { ...resized, name: file.name };
+        }),
+      );
+      if (added.length > 0) {
+        setPhotos((p) => [...p, ...added].slice(0, MAX_PHOTOS));
+        setDrafts(null);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't read that image.");
     }
     if (fileRef.current) fileRef.current.value = "";
   };
+
+  const removePhoto = (idx: number) =>
+    setPhotos((p) => p.filter((_, i) => i !== idx));
 
   const setGrams = (idx: number, grams: number) =>
     setDrafts((d) =>
@@ -155,8 +171,7 @@ export function AiTab({ onAdded, date }: { onAdded: () => void; date?: string })
       setDrafts(null);
       setText("");
       setComments("");
-      setPhoto(null);
-      setPhotoName(null);
+      setPhotos([]);
       onAdded();
     }
   };
@@ -183,47 +198,58 @@ export function AiTab({ onAdded, date }: { onAdded: () => void; date?: string })
         className="w-full resize-none rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm outline-none placeholder:text-white/30 focus:border-accent/60"
       />
 
-      <div className="flex items-center gap-2">
-        <Button
-          variant="secondary"
-          size="sm"
-          type="button"
-          onClick={() => fileRef.current?.click()}
-        >
-          <Camera className="h-4 w-4" />
-          {photo ? "Change photo" : "Add photo"}
-        </Button>
-        {photo && (
-          <span className="flex min-w-0 items-center gap-1 text-xs text-white/50">
-            <span className="truncate">{photoName ?? "photo"}</span>
-            <button
-              onClick={() => {
-                setPhoto(null);
-                setPhotoName(null);
-              }}
-              className="tap shrink-0 rounded-full p-1 text-white/40 hover:text-white"
-              aria-label="Remove photo"
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            type="button"
+            disabled={photos.length >= MAX_PHOTOS}
+            onClick={() => fileRef.current?.click()}
+          >
+            <Camera className="h-4 w-4" />
+            {photos.length === 0
+              ? "Add photo"
+              : `Add photo (${photos.length}/${MAX_PHOTOS})`}
+          </Button>
+          {photos.map((p, i) => (
+            <span
+              key={i}
+              className="flex min-w-0 max-w-[45%] items-center gap-1 rounded-full bg-white/5 px-2.5 py-1 text-xs text-white/60"
             >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </span>
+              <span className="truncate">{p.name || `photo ${i + 1}`}</span>
+              <button
+                onClick={() => removePhoto(i)}
+                className="tap shrink-0 rounded-full p-0.5 text-white/40 hover:text-white"
+                aria-label={`Remove ${p.name || `photo ${i + 1}`}`}
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </span>
+          ))}
+        </div>
+        {photos.length > 0 && photos.length < MAX_PHOTOS && (
+          <p className="text-[11px] text-white/35">
+            Tip: add a second photo of the packaging/nutrition label to help
+            identify the exact product.
+          </p>
         )}
       </div>
       <input
         ref={fileRef}
         type="file"
         accept="image/*"
-        capture="environment"
+        multiple
         className="hidden"
         onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) void onPickPhoto(f);
+          const files = Array.from(e.target.files ?? []);
+          if (files.length > 0) void onPickPhotos(files);
         }}
       />
 
       <Button
         onClick={() => void analyze(false)}
-        disabled={busy || (!text.trim() && !photo)}
+        disabled={busy || (!text.trim() && photos.length === 0)}
       >
         <Sparkles className={`h-4 w-4 ${busy ? "animate-pulse" : ""}`} />
         {busy ? "Checking the database…" : drafts ? "Analyze again" : "Analyze"}

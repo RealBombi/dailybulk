@@ -117,6 +117,7 @@ Rules:
 - NEVER output calorie or macro numbers. A separate food database provides all nutrition data. Your only quantitative output is the estimated grams eaten.
 - Estimate grams conservatively from common portions (1 egg ≈ 50 g, 1 glass ≈ 250 ml ≈ 250 g, 1 slice bread ≈ 35 g, 1 tbsp butter/oil ≈ 14 g, 1 chicken breast ≈ 170 g). When the user states an amount, use it exactly.
 - searchQuery must be a short generic term likely to match USDA FoodData Central (e.g. "shrimp cooked", "butter light", "bread white"). No brand names unless the user gave one.
+- Photos may include the meal itself and/or the product packaging or nutrition label. Use a label photo to identify the exact product, variant and brand (put the brand in searchQuery then) and to read the stated serving size — but never copy nutrition numbers from it; the database supplies all nutrition data.
 - If the user added comments or corrections, they override everything else.
 - At most ${MAX_ITEMS} items; merge trivial ones rather than exceeding it.`;
 
@@ -128,11 +129,16 @@ Rules:
 - Return -1 when no candidate is an acceptable match — a wrong match is worse than no match.
 - Never invent nutrition data; you are only choosing among the given candidates.`;
 
+type EstimateImage = { data: string; mediaType: string };
+
 type EstimateRequest = {
   text?: string;
   comments?: string;
-  image?: { data: string; mediaType: string };
+  /** Up to two photos — e.g. the meal itself plus the nutrition label. */
+  images?: EstimateImage[];
 };
+
+const MAX_IMAGES = 2;
 
 const ALLOWED_IMAGE_TYPES = new Set([
   "image/jpeg",
@@ -175,19 +181,21 @@ export async function POST(request: Request) {
 
   const text = body.text?.trim();
   const comments = body.comments?.trim();
-  const image = body.image;
-  if (!text && !image) {
+  const images = (body.images ?? []).slice(0, MAX_IMAGES);
+  if (!text && images.length === 0) {
     return NextResponse.json(
       { error: "Describe the meal or attach a photo." },
       { status: 400 },
     );
   }
-  if (image && !ALLOWED_IMAGE_TYPES.has(image.mediaType)) {
-    return NextResponse.json({ error: "Unsupported image type." }, { status: 400 });
-  }
-  // ~2 MB base64 cap — the client downscales photos before uploading.
-  if (image && image.data.length > 2_800_000) {
-    return NextResponse.json({ error: "Photo is too large." }, { status: 413 });
+  for (const image of images) {
+    if (!ALLOWED_IMAGE_TYPES.has(image.mediaType)) {
+      return NextResponse.json({ error: "Unsupported image type." }, { status: 400 });
+    }
+    // ~2 MB base64 cap each — the client downscales photos before uploading.
+    if (image.data.length > 2_800_000) {
+      return NextResponse.json({ error: "Photo is too large." }, { status: 413 });
+    }
   }
 
   const client = new Anthropic();
@@ -195,7 +203,7 @@ export async function POST(request: Request) {
   try {
     // ---- Step 1: parse the description into ingredients + gram estimates ----
     const userContent: Anthropic.ContentBlockParam[] = [];
-    if (image) {
+    for (const image of images) {
       userContent.push({
         type: "image",
         source: {
@@ -206,7 +214,9 @@ export async function POST(request: Request) {
       });
     }
     const promptParts = [
-      image && !text ? "Identify the foods in this photo." : null,
+      images.length > 0 && !text
+        ? `Identify the foods in ${images.length === 1 ? "this photo" : "these photos"}.`
+        : null,
       text ? `Meal description: ${text}` : null,
       comments ? `User comments/corrections (these override everything else): ${comments}` : null,
     ].filter(Boolean);
