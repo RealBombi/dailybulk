@@ -435,6 +435,39 @@ export async function signIn(
 }
 
 /**
+ * Email one-time-code sign-in — the reliable path inside installed PWAs,
+ * where OAuth redirects get bounced out to the system browser (and the
+ * session lands there instead of in the app). No navigation involved:
+ * request a 6-digit code, verify it in place. Signs into the existing
+ * account with that email (including accounts created via Google).
+ */
+export async function requestEmailCode(email: string): Promise<AuthResult> {
+  const sb = getSupabase();
+  if (!sb) return { ok: false, error: "Cloud sync is not configured." };
+  const { error } = await sb.auth.signInWithOtp({
+    email,
+    options: { shouldCreateUser: true },
+  });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
+export async function verifyEmailCode(
+  email: string,
+  code: string,
+): Promise<AuthResult> {
+  const sb = getSupabase();
+  if (!sb) return { ok: false, error: "Cloud sync is not configured." };
+  const { error } = await sb.auth.verifyOtp({
+    email,
+    token: code.trim(),
+    type: "email",
+  });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
+/**
  * Start the Google OAuth flow. This redirects the browser to Google and back
  * to /settings, where the restored session triggers reconcile() on load. Uses
  * the live origin so it works on localhost, Vercel previews and production

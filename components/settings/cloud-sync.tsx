@@ -17,6 +17,8 @@ import {
   signIn,
   signUp,
   signInWithGoogle,
+  requestEmailCode,
+  verifyEmailCode,
   signOut,
   syncNow,
   uploadLocalToCloud,
@@ -149,7 +151,12 @@ function AuthPanel({ onDone }: { onDone: () => void }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
-  const [busy, setBusy] = useState<null | "signin" | "signup" | "google">(null);
+  const [busy, setBusy] = useState<
+    null | "signin" | "signup" | "google" | "code"
+  >(null);
+  const [codeMode, setCodeMode] = useState(false);
+  const [codeSent, setCodeSent] = useState(false);
+  const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
 
@@ -206,6 +213,32 @@ function AuthPanel({ onDone }: { onDone: () => void }) {
     // On success the browser redirects to Google; leave the busy state on.
   };
 
+  const sendCode = async () => {
+    setBusy("code");
+    setError(null);
+    setInfo(null);
+    const res = await requestEmailCode(email.trim());
+    setBusy(null);
+    if (!res.ok) {
+      setError(res.error ?? "Couldn't send the code.");
+      return;
+    }
+    setCodeSent(true);
+    setInfo("Check your email for a 6-digit code.");
+  };
+
+  const submitCode = async () => {
+    setBusy("code");
+    setError(null);
+    const res = await verifyEmailCode(email.trim(), code);
+    setBusy(null);
+    if (!res.ok) {
+      setError(res.error ?? "That code didn't work — request a new one.");
+      return;
+    }
+    onDone(); // signed in — the auth listener takes over
+  };
+
   const disabled = busy !== null;
 
   return (
@@ -214,6 +247,74 @@ function AuthPanel({ onDone }: { onDone: () => void }) {
         Back up your data and sync across devices.
       </p>
 
+      {codeMode ? (
+        <div className="flex flex-col gap-3">
+          <Field
+            type="email"
+            placeholder="Email"
+            autoComplete="email"
+            value={email}
+            onChange={setEmail}
+            disabled={disabled || codeSent}
+          />
+          {codeSent && (
+            <input
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              placeholder="6-digit code"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              className="h-12 rounded-2xl border border-white/10 bg-white/5 px-4 text-center text-lg tracking-[0.3em] tabular-nums outline-none transition-colors focus:border-accent/60 disabled:opacity-50"
+              disabled={disabled}
+            />
+          )}
+          {error && <p className="text-xs text-red-300">{error}</p>}
+          {info && <p className="text-xs text-emerald-300">{info}</p>}
+          {codeSent ? (
+            <>
+              <Button
+                type="button"
+                disabled={disabled || code.trim().length < 6}
+                onClick={() => void submitCode()}
+              >
+                {busy === "code" ? "Checking…" : "Sign in"}
+              </Button>
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => void sendCode()}
+                className="tap text-center text-xs text-white/50 hover:text-white/80 disabled:opacity-50"
+              >
+                Send a new code
+              </button>
+            </>
+          ) : (
+            <Button
+              type="button"
+              disabled={disabled || !email.trim()}
+              onClick={() => void sendCode()}
+            >
+              {busy === "code" ? "Sending…" : "Email me a code"}
+            </Button>
+          )}
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => {
+              setCodeMode(false);
+              setCodeSent(false);
+              setCode("");
+              setError(null);
+              setInfo(null);
+            }}
+            className="tap text-center text-xs text-white/50 hover:text-white/80 disabled:opacity-50"
+          >
+            Use password instead
+          </button>
+        </div>
+      ) : (
+      <>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -274,6 +375,20 @@ function AuthPanel({ onDone }: { onDone: () => void }) {
           ? "New here? Create an account"
           : "Already have an account? Sign in"}
       </button>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => {
+          setCodeMode(true);
+          setError(null);
+          setInfo(null);
+        }}
+        className="tap -mt-1 text-center text-xs text-white/50 hover:text-white/80 disabled:opacity-50"
+      >
+        Sign in with an email code instead (best for the installed app)
+      </button>
+      </>
+      )}
 
       <div className="flex items-center gap-3 py-0.5">
         <span className="h-px flex-1 bg-white/10" />
